@@ -1,8 +1,6 @@
 Example:
 
-~~~
-namespaces:
-  - name: aap
+```yaml
 operators:
   - name: openshift-gitops-operator
     namespace: openshift-operators
@@ -16,4 +14,4 @@ operators:
     source: redhat-operators
     sourcenamespace: openshift-marketplace
     clusterwide: false
-~~~
+```

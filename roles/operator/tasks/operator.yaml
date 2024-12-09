@@ -30,8 +30,6 @@
       metadata:
         name: "{{ operator.name }}"
         namespace: "{{ operator.namespace }}"
-        labels:
-          operators.coreos.com/openshift-gitops-operator.openshift-operators: ""
       spec:
         channel: "{{ operator.channel }}"
         name: "{{ operator.name }}"
