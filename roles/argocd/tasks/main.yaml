@@ -1,0 +1,47 @@
+- name: Grant admin access to ArgoCD in namespaces
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      kind: RoleBinding
+      apiVersion: rbac.authorization.k8s.io/v1
+      metadata:
+        name: argocd-admin
+        namespace: "{{ namespace.name }}"
+      subjects:
+        - kind: ServiceAccount
+          name: openshift-gitops-argocd-application-controller
+          namespace: openshift-gitops
+      roleRef:
+        kind: ClusterRole
+        name: admin
+        apiGroup: rbac.authorization.k8s.io
+  loop: "{{ namespaces }}"
+  loop_control:
+    loop_var: namespace
+
+- name: Create Applications on ArgoCD
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: ocp-aap-environment
+        namespace: openshift-gitops
+        finalizers:
+          - resources-finalizer.argocd.argoproj.io
+      spec:
+        project: default
+        source:
+          repoURL: "{{ resources_url }}"
+          targetRevision: main
+          path: "{{ resources_path }}"
+          directory:
+            recurse: true
+        destination:
+          server: https://kubernetes.default.svc
+          namespace: openshift-gitops
+        syncPolicy:
+          automated:
+            prune: true
+            selfHeal: true

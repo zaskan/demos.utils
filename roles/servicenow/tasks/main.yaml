@@ -1,0 +1,19 @@
+---
+- name: Open ServiceNow incident
+  ansible.builtin.include_tasks:
+    file: open_incident.yaml
+    apply:
+      vars:
+        servicenow_incident_title: "{{ servicenow_incident_title }}"
+        servicenow_incident_description: "{{ servicenow_incident_description }}"
+  when: servicenow_action == "open_incident"
+
+- name: Close ServiceNow incident
+  ansible.builtin.include_tasks:
+    file: close_incident.yaml
+    apply:
+      vars:
+        servicenow_incident_number: "{{ servicenow_incident_number }}"
+        servicenow_incident_caller: "{{ servicenow_incident_caller }}"
+        servicenow_incident_notes: "{{ servicenow_incident_notes }}"
+  when: servicenow_action == "close_incident"

@@ -1,0 +1,9 @@
+- name: Prepare Manifest
+  ansible.builtin.template:
+    src: "{{ operation }}.yaml.j2"
+    dest: "/tmp/{{ operation }}.yaml"
+
+- name: Execute {{ operation }}
+  kubernetes.core.k8s:
+    state: present
+    src: "/tmp/{{ operation }}.yaml"

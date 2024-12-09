@@ -1,0 +1,17 @@
+- name: Get Info From Incident {{ servicenow_incident_number }}
+  servicenow.itsm.incident_info:
+    number: "{{ servicenow_incident_number }}"
+  register: result
+
+- name: Close Incident {{ servicenow_incident_number }}
+  servicenow.itsm.api:
+    resource: incident
+    action: patch
+    sys_id: "{{ result.records[0].sys_id }}"
+    data:
+      state: 7
+      incident_state: 7
+      number: "{{ servicenow_incident_number }}"
+      close_code: "Resolved by Caller"
+      close_notes: "{{ servicenow_incident_notes }}"
+      caller: "{{ servicenow_incident_caller }}"

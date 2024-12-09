@@ -1,0 +1,21 @@
+---
+- name: Clone repository
+  ansible.builtin.include_tasks:
+    file: clone.yaml
+    apply:
+      vars:
+        git_repository: "{{ git_repository }}"
+        git_directory: "{{ git_directory }}"
+  when: git_operation == "clone"
+
+- name: Push Changes
+  ansible.builtin.include_tasks:
+    file: push.yaml
+    apply:
+      vars:
+        git_repository: "{{ git_repository }}"
+        git_directory: "{{ git_directory }}"
+        git_message: "{{ git_message }}"
+        git_email: "{{ git_email }}"
+        git_user: "{{ git_user }}"
+  when: git_operation == "push"

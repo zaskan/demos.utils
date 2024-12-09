@@ -1,0 +1,20 @@
+- name: Clone configuration repository using ssh
+  ansible.builtin.git:
+    repo: "{{ git_repository }}"
+    dest: "{{ git_directory }}"
+    clone: true
+    update: true
+    force: true
+    key_file: "{{ git_key_path }}"
+    ssh_opts: "-o StrictHostKeyChecking=no"
+    accept_hostkey: true
+  when: git_key_path is defined 
+
+- name: Clone configuration repository using http
+  ansible.builtin.git:
+    repo: "{{ git_repository }}"
+    dest: "{{ git_directory }}"
+    clone: true
+    update: true
+    force: true
+  when: git_key_path is not defined 

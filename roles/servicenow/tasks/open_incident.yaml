@@ -1,0 +1,19 @@
+- name: Open ServiceNow incident
+  servicenow.itsm.incident:
+    state: new
+    caller: "{{ servicenow_incident_caller }}"
+    short_description: "{{ servicenow_incident_title }}"
+    description: "{{ servicenow_incident_description }}"
+    impact: "{{ servicenow_incident_impact }}"
+    urgency: "{{ servicenow_incident_urgency }}"
+  register: incident
+
+- name: Set ServiceNow incident state
+  servicenow.itsm.incident:
+    state: in_progress
+    number: "{{ incident.record.number }}"
+
+- name: Set ServiceNow incident number
+  ansible.builtin.set_stats:
+    data:
+      incident: "{{ incident.record.number }}"
