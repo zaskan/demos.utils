@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    description: Exposes the database server
+  name: gitea-postgresql
+  namespace: {{ gitea.namespace }}
+spec:
+  ports:
+  - name: postgresql
+    port: 5432
+    targetPort: 5432
+  selector:
+    name: gitea-postgresql
