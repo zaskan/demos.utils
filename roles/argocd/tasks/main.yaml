@@ -70,7 +70,7 @@
         generators:
         - git:
             repoURL: "{{ argo.environment_repo_url }}"
-            revision:" {{ argo.environment_repo_revision }}"
+            revision: "{{ argo.environment_repo_revision }}"
             directories:
             - path: "{{argo.environment_path}}"
         template:
