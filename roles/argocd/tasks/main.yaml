@@ -57,7 +57,7 @@
           spec:
             project: "environment"
             source:
-              repoURL: '{{repo_url}}'
+              repoURL: '{{ repoURL }}'
               targetRevision: '{{ argo.environment_repo_revision }}'
               path: '{{"{{.path.path}}"}}'
             destination:
