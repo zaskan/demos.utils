@@ -1,0 +1,56 @@
+- name: "{{ item.name }} - create user in Gitea"
+  ansible.builtin.uri:
+    url: "https://gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/api/v1/admin/users"
+    user: gitea
+    password: openshift
+    force_basic_auth: true
+    method: POST
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      email: "{{ item.id }}@gitea.com"
+      full_name: "{{ item.id }}"
+      login_name: "{{ item.id }}"
+      must_change_password: false
+      password: "{{ item.pass }}"
+      restricted: true
+      send_notify: false
+      username: "{{ item.id }}"
+    status_code: 201
+    validate_certs: false
+
+- name: "{{ item.name }} - give admin permisions"
+  ansible.builtin.uri:
+    url: "https://gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/api/v1/admin/users/{{ item.id }}"
+    user: gitea
+    password: openshift
+    force_basic_auth: true
+    method: PATCH
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      admin: true
+      login_name: "{{ item.id }}"
+    status_code: 200
+    validate_certs: false
+  when: item.admin | bool
+
+- name: "{{ item.name }} - make user colaborator in specific projects"
+  ansible.builtin.uri:
+    url: "https://gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/api/v1/repos/gitea/{{ repo }}/collaborators/{{ item.id }}"
+    user: gitea
+    password: openshift
+    force_basic_auth: true
+    method: PUT
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      permission: "write"
+    status_code: 204
+    validate_certs: false
+  loop: "{{ item.colaborator_in }}"
+  loop_control:
+    loop_var: repo

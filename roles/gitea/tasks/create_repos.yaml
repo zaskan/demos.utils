@@ -1,0 +1,64 @@
+- name:  "{{ item.name }} - clone source repository"
+  ansible.builtin.git:
+    repo: "{{ item.url }}"
+    dest: "/tmp/{{ item.name }}-source"
+    single_branch: yes
+    version: "{{ item.branch }}"
+    force: true
+
+- name: "{{ item.name }} - delete source git reference"
+  ansible.builtin.file:
+    state: absent
+    path: "/tmp/{{ item.name }}-source/.git"
+
+- name: "{{ item.name }} - create destination repository in Gitea"
+  ansible.builtin.uri:
+    url: "https://gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/api/v1/user/repos"
+    user: gitea
+    password: openshift
+    force_basic_auth: true
+    method: POST
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      auto_init: true
+      default_branch: "master"
+      gitignores: "VisualStudioCode"
+      name: "{{ item.name }}"
+      private: false
+      trust_model: "default"
+    status_code: 201
+    validate_certs: false
+
+- name: "{{ item.name }} - clone destination repository"
+  ansible.builtin.shell: |
+    git config http.sslVerify "false"
+    git clone https://gitea:openshift@gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/gitea/{{ item.name }}
+  args:
+    chdir: "/tmp"
+
+- name: "{{ item.name }} - copy source into destination"
+  ansible.builtin.copy:
+    src: "/tmp/{{ item.name }}-source{{ item.path }}/"
+    dest: "/tmp/{{ item.name }}"
+    remote_src: yes  
+
+- name: "{{ item.name }} - Commit configuration to repository (Gitea)"
+  ansible.builtin.shell: |
+    git config --global user.email gitea@gitea.com
+    git config --global user.name gitea
+    git add . && git commit -m "Included content from source repository" && git push
+  args:
+    chdir: "/tmp/{{ item.name }}"
+
+- name: "{{ item.name }} - cleanup source"
+  ansible.builtin.file:
+    path: "/tmp/{{ item.name }}-source"
+    state: absent
+
+- name: "{{ item.name }} - cleanup source"
+  ansible.builtin.file:
+    path: "/tmp/{{ item.name }}"
+    state: absent
+
