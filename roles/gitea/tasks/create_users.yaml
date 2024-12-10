@@ -1,4 +1,4 @@
-- name: "{{ item.name }} - create user in Gitea"
+- name: "{{ item.id }} - create user in Gitea"
   ansible.builtin.uri:
     url: "https://gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/api/v1/admin/users"
     user: gitea
@@ -20,7 +20,7 @@
     status_code: 201
     validate_certs: false
 
-- name: "{{ item.name }} - give admin permisions"
+- name: "{{ item.id }} - give admin permisions"
   ansible.builtin.uri:
     url: "https://gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/api/v1/admin/users/{{ item.id }}"
     user: gitea
@@ -37,7 +37,7 @@
     validate_certs: false
   when: item.admin | bool
 
-- name: "{{ item.name }} - make user colaborator in specific projects"
+- name: "{{ item.id }} - make user colaborator in specific projects"
   ansible.builtin.uri:
     url: "https://gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/api/v1/repos/gitea/{{ repo }}/collaborators/{{ item.id }}"
     user: gitea
