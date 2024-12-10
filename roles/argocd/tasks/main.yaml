@@ -32,6 +32,28 @@
   loop_control:
     loop_var: namespace
 
+- name: Create ArgoCD environment project
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: argoproj.io/v1alpha1
+      kind: AppProject
+      metadata:
+        name: environment
+        namespace: openshift-gitops
+        finalizers:
+          - resources-finalizer.argocd.argoproj.io
+      spec: 
+        description: Environment Project
+        sourceRepos:
+        - '*'
+        destinations:
+        - namespace: '*'
+          server: '*'
+        clusterResourceWhitelist:
+        - group: '*'
+          kind: '*'
+
 - name: Create ArgoCD environment applications
   kubernetes.core.k8s:
     state: present
@@ -47,22 +69,22 @@
         project: "environment"
         generators:
         - git:
-            repoURL: '{{ argo.environment_repo_url }}'
-            revision: '{{ argo.environment_repo_revision }}'
+            repoURL: "{{ argo.environment_repo_url }}"
+            revision:" {{ argo.environment_repo_revision }}"
             directories:
-            - path: argo.environment_path
+            - path: "{{argo.environment_path}}"
         template:
           metadata:
             name: '{{"{{.path.basename}}"}}'
           spec:
             project: "environment"
             source:
-              repoURL: '{{ argo.environment_repo_url }}'
-              targetRevision: '{{ argo.environment_repo_revision }}'
+              repoURL: "{{ argo.environment_repo_url }}"
+              targetRevision: "{{ argo.environment_repo_revision }}"
               path: '{{"{{.path.path}}"}}'
             destination:
               server: https://kubernetes.default.svc
-              namespace: 'openshift-gitops'
+              namespace: "openshift-gitops"
             syncPolicy:
               automated:
                 prune: true
