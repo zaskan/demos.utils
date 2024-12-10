@@ -47,8 +47,6 @@
         project: "environment"
         generators:
         - git:
-            repoURL: '{{ argo.environment_repo_url }}'
-            revision: '{{ argo.environment_repo_revision }}'
             directories:
             - path: argo.environment_path
         template:
@@ -57,7 +55,7 @@
           spec:
             project: "environment"
             source:
-              repoURL: '{{ repoURL }}'
+              repoURL: '{{ argo.environment_repo_url }}'
               targetRevision: '{{ argo.environment_repo_revision }}'
               path: '{{"{{.path.path}}"}}'
             destination:
