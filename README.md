@@ -10,9 +10,18 @@ Ansible roles for demos environment setup and configuration.
 
 In order to use this collection:
 
-```yaml
-
-```
+- Create a directory `collections`
+- Create a file named `requirements.yaml`:
+  ```yaml
+  collections:
+  - name: https://github.com/zascan/demos.utils.git
+      type: git
+      version: main
+  ```
+- Run: 
+  ```sh
+  ansible-galaxy collection install -r collections/requirements.yaml
+  ```
 
 ## Roles
 
@@ -24,3 +33,4 @@ Available Roles:
 - gitea: deploy and configure a gitea instance and clone initial repositories
 - kubeconfig: create a kubeconfig file in ansible navigator containers
 
+TODO: review and describe servicenow and velero_backup roles
