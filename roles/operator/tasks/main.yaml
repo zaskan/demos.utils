@@ -1,15 +1,3 @@
-- name: Create Namespaces
-  kubernetes.core.k8s:
-    state: present
-    definition:
-      apiVersion: project.openshift.io/v1
-      kind: Project
-      metadata:
-        name: "{{ namespace.name }}"
-  loop: "{{ namespaces }}"
-  loop_control:
-    loop_var: namespace
-
 - name: Install Operator
   ansible.builtin.include_tasks:
     file: operator.yaml

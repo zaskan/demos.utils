@@ -1,3 +1,16 @@
+- name: Get argoCD admin password
+  ansible.builtin.command:
+    cmd: oc get secret openshift-gitops-cluster -n openshift-gitops -ojsonpath='{.data.admin\.password}'
+  register: argoPass
+
+- name: Demo Environment Details
+  ansible.builtin.debug:
+    msg:
+    - "--------------------------------------------------------------------------"
+    - "OpenShift GitOps URL: https://openshift-gitops-server-openshift-gitops.apps.{{ argo.ocp_domain }}"
+    - "OpenShift GitOps Credentials: admin / {{ argoPass.stdout | b64decode  }}"
+    - "--------------------------------------------------------------------------"
+
 - name: Grant admin access to ArgoCD in namespaces
   kubernetes.core.k8s:
     state: present
@@ -15,33 +28,86 @@
         kind: ClusterRole
         name: admin
         apiGroup: rbac.authorization.k8s.io
-  loop: "{{ namespaces }}"
+  loop: "{{ argo.target_namespaces }}"
   loop_control:
     loop_var: namespace
 
-- name: Create Applications on ArgoCD
+- name: Create ArgoCD environment project
   kubernetes.core.k8s:
     state: present
     definition:
       apiVersion: argoproj.io/v1alpha1
-      kind: Application
+      kind: AppProject
       metadata:
-        name: ocp-aap-environment
+        name: environment
         namespace: openshift-gitops
         finalizers:
           - resources-finalizer.argocd.argoproj.io
+      spec: 
+        description: Environment Project
+        sourceRepos:
+        - '*'
+        destinations:
+        - namespace: '*'
+          server: '*'
+        clusterResourceWhitelist:
+        - group: '*'
+          kind: '*'
+
+- name: Create ArgoCD environment applications
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: argoproj.io/v1alpha1
+      kind: ApplicationSet
+      metadata:
+        name: environment
+        namespace: openshift-gitops
       spec:
-        project: default
-        source:
-          repoURL: "{{ resources_url }}"
-          targetRevision: main
-          path: "{{ resources_path }}"
-          directory:
-            recurse: true
-        destination:
-          server: https://kubernetes.default.svc
-          namespace: openshift-gitops
-        syncPolicy:
-          automated:
-            prune: true
-            selfHeal: true
+        goTemplate: true
+        goTemplateOptions: ["missingkey=error"]
+        project: "environment"
+        generators:
+        - git:
+            repoURL: "{{ argo.environment_repo_url }}"
+            revision: "{{ argo.environment_repo_revision }}"
+            directories:
+            - path: "{{argo.environment_path}}"
+        template:
+          metadata:
+            name: '{{"{{.path.basename}}"}}'
+          spec:
+            project: "environment"
+            source:
+              repoURL: "{{ argo.environment_repo_url }}"
+              targetRevision: "{{ argo.environment_repo_revision }}"
+              path: '{{"{{.path.path}}"}}'
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: "openshift-gitops"
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+
+- name: Retrieve all applications in the ApplicationSet with retries
+  kubernetes.core.k8s_info:
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: openshift-gitops
+    label_selectors:
+      - "app.kubernetes.io/instance=environment"
+  register: apps
+  until: "{{ apps.resources | map(attribute='status.health.status') | select('!=', 'Healthy') | list | length == 0 }}"
+  retries: 5
+  delay: 20
+  failed_when: false
+
+- name: Set fact if all applications are healthy
+  set_fact:
+    all_healthy: "{{ apps.resources | map(attribute='status.health.status') | select('!=', 'Healthy') | list | length == 0 }}"
+
+- name: Fail if any application is not healthy
+  fail:
+    msg: "Not all applications in ApplicationSet are healthy after retries."
+  when: not all_healthy

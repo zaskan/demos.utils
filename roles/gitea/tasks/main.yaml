@@ -1,0 +1,94 @@
+---
+- name: Start Gitea Deploy
+  ansible.builtin.debug:
+    msg: "Starting Gitea Deployment and Configuration"
+
+- name: Create Gitea Namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: project.openshift.io/v1
+      kind: Project
+      metadata:
+        name: "{{ gitea.namespace | default('gitea') }}"
+
+- name: Render all templates to YAML
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "/tmp/{{ item | basename | replace('.j2', '.yaml') }}"
+  with_fileglob:
+    - ../templates/*.j2
+
+- name: Create non-deployment Gitea resources
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', '/tmp/' + item ) | from_yaml_all }}"
+  loop:
+    - db-service.yaml
+    - pvcs.yaml
+    - route.yaml
+    - server-config.yaml
+    - service-account.yaml
+    - service.yaml
+
+- name: Deploy Gitea database
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', '/tmp/db-deployment.yaml') | from_yaml_all }}"
+
+- name: Wait for database pods to be in Ready state
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ gitea.namespace }}"
+    label_selectors:
+      - name = gitea-postgresql
+    wait: true
+    wait_condition: 
+      status: True
+      type: Ready
+    wait_sleep: 10
+    wait_timeout: 360
+
+- name: Deploy Gitea
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', '/tmp/deployment.yaml') | from_yaml_all }}"
+
+- name: Wait for Gitea pods to be in Running state
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ gitea.namespace }}"
+    label_selectors:
+      - name = gitea
+    wait: true
+    wait_condition: 
+      status: True
+      type: Ready
+    wait_sleep: 10
+    wait_timeout: 360
+
+- name: SignUp Gitea Admin
+  ansible.builtin.uri:
+    url: "https://gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/user/sign_up"
+    method: POST
+    headers:
+          Content-Type: "application/json"
+    body_format: json
+    body:
+      username: "gitea"
+      password: "openshift"
+      retype: "openshift"
+      email: "gitea@gitea.com"
+      send_notify: false
+    status_code: 200
+    validate_certs: false
+  retries: 5
+  delay: 10
+
+- name: Create Gitea Repositories
+  include_tasks: create_repos.yaml
+  loop: "{{ gitea.repositories }}"
+
+- name: Create Gitea Users
+  include_tasks: create_users.yaml
+  loop: "{{ gitea.users }}"
