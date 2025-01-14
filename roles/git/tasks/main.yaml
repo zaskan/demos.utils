@@ -4,8 +4,8 @@
     file: clone.yaml
     apply:
       vars:
-        git_repository: "{{ git.repository }}"
-        git_directory: "{{ git.directory }}"
+        git_repository: "{{ git_repository }}"
+        git_directory: "{{ git_directory }}"
   when: git.operation == "clone"
 
 - name: Push Changes
@@ -13,9 +13,9 @@
     file: push.yaml
     apply:
       vars:
-        git_repository: "{{ git.repository }}"
-        git_directory: "{{ git.directory }}"
-        git_message: "{{ git.message }}"
-        git_email: "{{ git.email }}"
-        git_user: "{{ git.user }}"
+        git_repository: "{{ git_repository }}"
+        git_directory: "{{ git_directory }}"
+        git_message: "{{ git_message }}"
+        git_email: "{{ git_email }}"
+        git_user: "{{ git_user }}"
   when: git.operation == "push"
