@@ -1,0 +1,84 @@
+- name: Create AAP Instance
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: aap.ansible.com/v1alpha1
+      kind: AnsibleAutomationPlatform
+      metadata:
+        name: "{{ aap_ocp.name }}"
+        namespace: "{{ aap_ocp.namespace }}"
+      spec:
+        eda:
+          disabled: false
+        route_tls_termination_mechanism: Edge
+        service_type: ClusterIP
+        ingress_type: Route
+        no_log: true
+        redis_mode: standalone
+        image_pull_policy: Always
+        lightspeed:
+          disabled: true
+        hub:
+          disabled: false
+          replicas: 2
+        api:
+          log_level: INFO
+          replicas: 2
+        database:
+          postgres_data_volume_init: false
+          resource_requirements:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+          storage_requirements:
+            requests:
+              storage: 100Gi
+        controller:
+          replicas: 2
+          disabled: false
+
+- name: Wait for Ansible Controller Route to be Created
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ aap_ocp.name }}-controller"
+    namespace: "{{ aap_ocp.namespace }}"
+  until:
+    - controller.resources[0].spec.host is defined
+    - controller.resources[0].spec.host != ""
+  retries: 60
+  delay: 10
+  register: controller
+
+- name: Get Controller password
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ aap_ocp.name }}-admin-password"
+    namespace: "{{ aap_ocp.namespace }}"
+  register: controller_password
+
+- name: Debug Access
+  ansible.builtin.debug:
+    msg:
+    - "--------------------------------------------------------------------------"
+    - "AAP Gateway URL: https://{{ aap_ocp.name }}-{{ aap_ocp.namespace }}.apps.{{ aap_ocp.ocp_domain }}"
+    - "AAP Credentials: admin / {{ controller_password.resources[0].data.password | ansible.builtin.b64decode }}"
+    - "--------------------------------------------------------------------------"
+
+- name: Wait for Ansible Controller API to be ready
+  ansible.builtin.uri:
+    url: "https://{{ aap_ocp.name }}-controller-{{ aap_ocp.namespace }}.apps.{{ aap_ocp.ocp_domain }}/api/controller/v2/ping/"
+    user: "admin"
+    password: "{{ controller_password.resources[0].data.password | ansible.builtin.b64decode }}"
+    method: GET
+    headers:
+      Content-Type: application/json
+    body_format: json
+    validate_certs: false
+    force_basic_auth: true
+    status_code:
+      - 200
+    return_content: true
+  retries: 60
+  delay: 10

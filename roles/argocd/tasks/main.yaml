@@ -95,17 +95,24 @@
     api_version: argoproj.io/v1alpha1
     kind: Application
     namespace: openshift-gitops
-    label_selectors:
-      - "app.kubernetes.io/instance=environment"
   register: apps
-  until: "{{ apps.resources | map(attribute='status.health.status') | select('!=', 'Healthy') | list | length == 0 }}"
-  retries: 5
-  delay: 20
+  until:  >-
+    {{ apps.resources
+        | selectattr('status.sync.status', 'ne', 'Synced')
+        | selectattr('spec.project', 'eq', 'environment')
+        | list
+        | length == 0 }}
+  retries: 20
+  delay: 10
   failed_when: false
 
 - name: Set fact if all applications are healthy
   set_fact:
-    all_healthy: "{{ apps.resources | map(attribute='status.health.status') | select('!=', 'Healthy') | list | length == 0 }}"
+    all_healthy: "{{ apps.resources
+        | selectattr('status.sync.status', 'ne', 'Synced')
+        | selectattr('spec.project', 'eq', 'environment')
+        | list
+        | length == 0 }}"
 
 - name: Fail if any application is not healthy
   fail:
