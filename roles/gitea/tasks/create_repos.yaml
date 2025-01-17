@@ -1,3 +1,11 @@
+- name: Clean temporary paths
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/tmp/{{ item.name }}-source"
+    - "/tmp/{{ item.name }}"
+
 - name:  "{{ item.name }} - clone source repository"
   ansible.builtin.git:
     repo: "{{ item.url }}"
