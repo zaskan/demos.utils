@@ -28,7 +28,9 @@
       name: "{{ item.name }}"
       private: false
       trust_model: "default"
-    status_code: 201
+    status_code: 
+      - 201
+      - 409
     validate_certs: false
 
 - name: "{{ item.name }} - clone destination repository"
