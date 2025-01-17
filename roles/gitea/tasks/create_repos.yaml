@@ -1,10 +1,12 @@
 - name: Clean temporary paths
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: "{{ clean_path }}"
     state: absent
   loop:
     - "/tmp/{{ item.name }}-source"
     - "/tmp/{{ item.name }}"
+  loop_control:
+    loop_var: clean_path
 
 - name:  "{{ item.name }} - clone source repository"
   ansible.builtin.git:
@@ -62,7 +64,9 @@
   register: commit
   args:
     chdir: "/tmp/{{ item.name }}"
-  changed_when: "commit.rc == 0 or 'Your branch is up to date with' in commit.stdout"
+  changed_when:  >
+    commit.rc == 0 or
+    ("Your branch is up to date with" in (commit.stdout | default('')))
 
 - name: "{{ item.name }} - cleanup source"
   ansible.builtin.file:
