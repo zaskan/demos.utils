@@ -64,7 +64,12 @@
   register: commit
   args:
     chdir: "/tmp/{{ item.name }}"
-  changed_when: commit.rc == 0 or (commit.rc == 1 and "up to date" in (commit.stdout | default('')))
+  changed_when: >
+    (commit.rc == 0) or
+    (commit.rc == 1 and "up to date" in commit.stdout)
+  failed_when: >
+    (commit.rc not in [0,1]) or
+    (commit.rc != 0 and "up to date" not in commit.stdout)
 
 - name: "{{ item.name }} - cleanup source"
   ansible.builtin.file:
