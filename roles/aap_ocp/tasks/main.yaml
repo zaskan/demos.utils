@@ -41,7 +41,7 @@
   kubernetes.core.k8s_info:
     api_version: route.openshift.io/v1
     kind: Route
-    name: "{{ aap_ocp.name }}-controller"
+    name: "{{ aap_ocp.name }}"
     namespace: "{{ aap_ocp.namespace }}"
   until:
     - controller.resources[0].spec.host is defined
