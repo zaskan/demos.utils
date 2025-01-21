@@ -45,8 +45,7 @@
 
 - name: "{{ item.name }} - clone destination repository"
   ansible.builtin.shell: |
-    git config http.sslVerify "false"
-    git clone https://gitea:openshift@gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/gitea/{{ item.name }}
+    git -c http.sslVerify=false clone https://gitea:openshift@gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/gitea/{{ item.name }}
   args:
     chdir: "/tmp"
 
@@ -60,7 +59,7 @@
   ansible.builtin.shell: |
     git config --global user.email gitea@gitea.com
     git config --global user.name gitea
-    git add . && git commit -m "Included content from source repository" && git push
+    git add . && git -c http.sslVerify=false commit -m "Included content from source repository" && git push
   register: commit
   args:
     chdir: "/tmp/{{ item.name }}"
