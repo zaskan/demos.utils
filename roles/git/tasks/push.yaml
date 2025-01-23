@@ -5,7 +5,7 @@
       git pull
       git add .
       git commit -m "{{ git_message }}"
-      git push --repo="{{ git_repository | urlsplit("scheme")}}://{{ lookup('env','GITEA_USERNAME') }}:{{ lookup('env','GITEA_PASSWORD') }}@{{ git_repository | urlsplit("hostname") }}:{{ git_repository | urlsplit('port') }}{{ git_repository | urlsplit('path') }}"
+      git push --repo="{{ git_repository | urlsplit("scheme")}}://{{ lookup('env','GITEA_USERNAME') }}:{{ lookup('env','GITEA_PASSWORD') }}@{{ git_repository | urlsplit("hostname") }}{{ git_repository | urlsplit('path') }}"
     args:
       chdir: "{{ git_directory }}"
     ignore_errors: true
