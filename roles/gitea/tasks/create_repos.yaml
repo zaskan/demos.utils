@@ -45,7 +45,7 @@
 
 - name: "{{ item.name }} - clone destination repository"
   ansible.builtin.shell: |
-    git clone https://gitea:openshift@gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/gitea/{{ item.name }}
+    git -c http.sslVerify=false clone https://gitea:openshift@gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/gitea/{{ item.name }}
   args:
     chdir: "/tmp"
 
