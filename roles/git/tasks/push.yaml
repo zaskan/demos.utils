@@ -22,8 +22,8 @@
       git config --global user.name "{{ git_user }}"
       git pull
       git add .
-      git -c http.sslVerify=false commit -m "{{ git_message }}"
-      git push "{{ git_repository }}"
+      git commit -m "{{ git_message }}"
+      git -c http.sslVerify=false push "{{ git_repository }}"
     args:
       chdir: "{{ git_directory }}"
     ignore_errors: true
