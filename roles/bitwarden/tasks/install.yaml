@@ -1,0 +1,26 @@
+- name: Add Bitwarden repository
+  kubernetes.core.helm_repository:
+    name: bitwarden
+    repo_url: "https://charts.bitwarden.com/"
+
+- name: Uninstall Bitwarden SM Operator
+  ansible.builtin.command:
+    cmd: helm uninstall sm-operator -n sm-operator-system
+
+- name: Delete Bitwarden namespace
+  kubernetes.core.k8s:
+    api_version: project.openshift.io/v1
+    kind: Project
+    name: sm-operator-system
+    state: absent
+
+- name: Deleting Bitwarden secrets
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Secret
+    name: bw-auth-token
+    namespace: "{{ namespace }}"
+    state: absent
+  loop: "{{ namespaces }}"
+  loop_control:
+    loop_var: namespace

@@ -1,0 +1,16 @@
+- name: Install and Configure Bitwarden SM
+  ansible.builtin.include_tasks:
+    file: clone.yaml
+    apply:
+      vars:
+        token: {{ "bitwarden.token "}}
+        namespaces:  {{ "bitwarden.namespaces "}}
+  when: bitwarden.operation == "install"
+
+- name: Uninstall Bitwarden SM
+  ansible.builtin.include_tasks:
+    file: clone.yaml
+    apply:
+      vars:
+        namespaces:  {{ "bitwarden.namespaces "}}
+  when: bitwarden.operation == "uninstall"
