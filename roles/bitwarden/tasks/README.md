@@ -1,8 +1,8 @@
 Example:
 
 ```yaml
+bitwarden_operation: # install or uninstall
 bitwarden:
-  operation: # install or uninstall
   token: # BW Token
   namespaces: # List of namespaces where BW secrets will be needed/used
     - namespace1

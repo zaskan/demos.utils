@@ -5,7 +5,7 @@
       vars:
         token: {{ "bitwarden.token "}}
         namespaces:  {{ "bitwarden.namespaces "}}
-  when: bitwarden.operation == "install"
+  when: bitwarden_operation == "install"
 
 - name: Uninstall Bitwarden SM
   ansible.builtin.include_tasks:
@@ -13,4 +13,4 @@
     apply:
       vars:
         namespaces:  {{ "bitwarden.namespaces "}}
-  when: bitwarden.operation == "uninstall"
+  when: bitwarden_operation == "uninstall"
