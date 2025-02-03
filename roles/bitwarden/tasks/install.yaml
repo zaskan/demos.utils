@@ -1,0 +1,29 @@
+- name: Add Bitwarden repository
+  kubernetes.core.helm_repository:
+    name: bitwarden
+    repo_url: "https://charts.bitwarden.com/"
+
+# Not using  kubernetes.core.helm because of not realeased chart (--devel)
+- name: install Bitwarden SM Operator
+  ansible.builtin.command:
+    cmd: helm upgrade sm-operator bitwarden/sm-operator -i --debug -n sm-operator-system --create-namespace --values files/values.yaml --devel
+
+- name: Wait for Bitwarden SM Operator pods to be in Ready state
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "sm-operator-system"
+    label_selectors:
+      - app.kubernetes.io/name = sm-operator
+    wait: true
+    wait_condition: 
+      status: True
+      type: Ready
+    wait_sleep: 10
+    wait_timeout: 360
+
+- name: Create Bitwarden secret in target namespaces
+  ansible.builtin.command:
+    cmd: "oc create secret generic bw-auth-token -n {{ namespace }} --from-literal=token='{{ token }}'"
+  loop: "{{ namespaces }}"
+  loop_control:
+    loop_var: namespace
