@@ -33,5 +33,6 @@ Available Roles:
 - gitea: deploy and configure a gitea instance and clone initial repositories
 - kubeconfig: create a kubeconfig file in ansible navigator containers
 - aap_ocp: create and configure aap in ocp
+- bitwarden: install and configure Bitwarden in OpenShift for secret management
 
 TODO: review and describe servicenow and velero_backup roles
