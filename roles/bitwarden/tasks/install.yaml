@@ -3,24 +3,27 @@
     name: bitwarden
     repo_url: "https://charts.bitwarden.com/"
 
-- name: Uninstall Bitwarden SM Operator
+# Not using  kubernetes.core.helm because of not realeased chart (--devel)
+- name: install Bitwarden SM Operator
   ansible.builtin.command:
-    cmd: helm uninstall sm-operator -n sm-operator-system
+    cmd: helm upgrade sm-operator bitwarden/sm-operator -i --debug -n sm-operator-system --create-namespace --values files/values.yaml --devel
 
-- name: Delete Bitwarden namespace
-  kubernetes.core.k8s:
-    api_version: project.openshift.io/v1
-    kind: Project
-    name: sm-operator-system
-    state: absent
+- name: Wait for Bitwarden SM Operator pods to be in Ready state
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "sm-operator-system"
+    label_selectors:
+      - app.kubernetes.io/name = sm-operator
+    wait: true
+    wait_condition: 
+      status: True
+      type: Ready
+    wait_sleep: 10
+    wait_timeout: 360
 
-- name: Deleting Bitwarden secrets
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: Secret
-    name: bw-auth-token
-    namespace: "{{ namespace }}"
-    state: absent
+- name: Create Bitwarden secret in target namespaces
+  ansible.builtin.command:
+    cmd: "oc create secret generic bw-auth-token -n {{ namespace }} --from-literal=token='{{ token }}'"
   loop: "{{ namespaces }}"
   loop_control:
     loop_var: namespace
