@@ -6,7 +6,7 @@
 - name: Render all templates to YAML
   ansible.builtin.template:
     src: "{{ item }}"
-    dest: "/tmp/{{ item | basename | replace('.j2', '.yaml') }}"
+    dest: "/tmp/{{ item | basename | replace('.j2', '') }}"
   with_fileglob:
     - ../templates/*.j2
 
