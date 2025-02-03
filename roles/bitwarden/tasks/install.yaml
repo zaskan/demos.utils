@@ -3,10 +3,17 @@
     name: bitwarden
     repo_url: "https://charts.bitwarden.com/"
 
+- name: Render all templates to YAML
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "/tmp/{{ item | basename | replace('.j2', '') }}"
+  with_fileglob:
+    - ../templates/*.j2
+
 # Not using  kubernetes.core.helm because of not realeased chart (--devel)
 - name: install Bitwarden SM Operator
   ansible.builtin.command:
-    cmd: helm upgrade sm-operator bitwarden/sm-operator -i --debug -n sm-operator-system --create-namespace --values files/values.yaml --devel
+    cmd: helm upgrade sm-operator bitwarden/sm-operator -i --debug -n sm-operator-system --create-namespace --values /tmp/values.yaml --devel
 
 - name: Wait for Bitwarden SM Operator pods to be in Ready state
   kubernetes.core.k8s_info:
