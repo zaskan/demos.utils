@@ -9,6 +9,7 @@
     args:
       chdir: "{{ git_directory }}"
     ignore_errors: true
+    changed_when: git_result.rc == 0
     register: git_result
     when: git_key_path is not defined
 
@@ -27,5 +28,22 @@
     args:
       chdir: "{{ git_directory }}"
     ignore_errors: true
+    changed_when: git_result.rc == 0
     register: git_result
     when: git_key_path is defined
+
+  - name: Commit configuration to repository
+    ansible.builtin.shell: |
+      git config --global user.email "{{ git_email }}" 
+      git config --global user.name "{{ git_user }}"
+      git pull
+      git add .
+      git commit -m "{{ git_message }}"
+      git -c http.sslVerify=false push --repo="https://git:{{ git_token }}@{{ git_repository }}"
+    args:
+      chdir: "{{ git_directory }}"
+    ignore_errors: true
+    register: git_result
+    changed_when: git_result.rc == 0
+    when: git_token is defined
+
