@@ -21,6 +21,8 @@
         hub:
           disabled: false
           replicas: 2
+          file_storage_access_mode: ReadWriteOnce
+          file_storage_size: 100Gi
         api:
           log_level: INFO
           replicas: 2
