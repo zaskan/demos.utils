@@ -76,7 +76,7 @@
     
 - name: Wait for Ansible Controller API to be ready
   ansible.builtin.uri:
-    url: "https://{{ aap_ocp.name }}-controller-{{ aap_ocp.namespace }}.apps.{{ aap_ocp.ocp_domain }}/api/controller/v2/ping/"
+    url: "https://{{ aap_ocp.name }}-{{ aap_ocp.namespace }}.apps.{{ aap_ocp.ocp_domain }}/api/controller/v2/ping/"
     user: "admin"
     password: "{{ controller_password.resources[0].data.password | ansible.builtin.b64decode }}"
     method: GET
