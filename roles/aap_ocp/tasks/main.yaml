@@ -20,11 +20,12 @@
           disabled: true
         hub:
           disabled: true
-#          replicas: 2
-#          file_storage_access_mode: ReadWriteOnce
-#          file_storage_size: 100Gi
-#          gunicorn_api_workers: 1
-#          gunicorn_content_workers: 1
+          replicas: 2
+          storage_type: file
+          file_storage_access_mode: ReadWriteOnce
+          file_storage_size: 100Gi
+          gunicorn_api_workers: 1
+          gunicorn_content_workers: 1
         api:
           log_level: INFO
           replicas: 2
