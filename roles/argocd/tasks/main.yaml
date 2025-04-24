@@ -98,8 +98,8 @@
   register: apps
   until:  >-
     {{ apps.resources
-        | selectattr('status.sync.status', 'defined')
-        | selectattr('status.sync.status', 'ne', 'Synced') 
+ #       | selectattr('status.sync.status', 'ne', 'Synced') 
+        | selectattr('status.health.status, 'ne', 'Healthy')
         | selectattr('spec.project', 'eq', 'environment')
         | list
         | length == 0 }}
@@ -110,8 +110,8 @@
 - name: Set fact if all applications are healthy
   set_fact:
     all_healthy: "{{ apps.resources
-        | selectattr('status.sync.status', 'defined')
-        | selectattr('status.sync.status', 'ne', 'Synced')
+ #       | selectattr('status.sync.status', 'ne', 'Synced')
+        | selectattr('status.health.status, 'ne', 'Healthy')
         | selectattr('spec.project', 'eq', 'environment')
         | list
         | length == 0 }}"
