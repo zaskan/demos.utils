@@ -11,7 +11,7 @@
     identity_providers: >-
       {{
         oauth_json.spec.identityProviders
-        | rejectattr('name', 'equalto', {{ provider_name }})
+        | rejectattr('name', 'equalto', provider_name)
         | list
       }}
 
