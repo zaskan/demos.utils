@@ -1,0 +1,18 @@
+- name: Configure htpasswsd provider
+  ansible.builtin.include_tasks:
+    file: install.yaml
+    apply:
+      vars:
+        provider_name: "{{ htpasswd_provider.name }}"
+        user_common: "{{ htpasswd_provider.users_key }}"
+        pass_common: "{{ htpasswd_provider.pass_key }}"
+        max_users: "{{ htpasswd_provider.total_users }}"
+  when: htpasswd_provider_operation == "install"
+
+- name: Delete htpasswsd provider
+  ansible.builtin.include_tasks:
+    file: uninstall.yaml
+    apply:
+      vars:
+        provider_name: "{{ htpasswd_provider.name }}"
+  when: htpasswd_provider_operation == "uninstall"
