@@ -39,12 +39,12 @@
   set_fact:
     identity_providers: >-
       {{ current_identity_providers + [ {
-        "name": "{{ provider_name }}",
+        "name": provider_name,
         "mappingMethod": "claim",
         "type": "HTPasswd",
         "htpasswd": {
           "fileData": {
-            "name": "{{ provider_name }}"
+            "name": provider_name
           }
         }
       } ] }}
