@@ -33,7 +33,7 @@
 - name: "Check if {{ provider_name }} provider already exists"
   set_fact:
     provider_exists: >-
-      {{ current_identity_providers | selectattr('name', 'equalto', {{ provider_name }}) | list | length > 0 }}
+      {{ current_identity_providers | selectattr('name', 'equalto', provider_name ) | list | length > 0 }}
 
 - name: Add {{ provider_name }} provider if it doesn't exist
   set_fact:
