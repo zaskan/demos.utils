@@ -1,0 +1,71 @@
+- name: Create htpasswd file
+  ansible.builtin.file:
+    path: /tmp/htpasswd
+    state: touch
+    mode: '0600'
+
+- name: Add hackathon users
+  ansible.builtin.command: >
+    htpasswd -bB /tmp/htpasswd {{ user_common }}{{ item }} {{ pass_common }}{{ item }}
+  loop: "{{ range(1, (max_users | int) + 1) | list }}"
+
+- name: Create htpasswd secret on OpenShift
+  ansible.builtin.shell: >
+    oc create secret generic {{ provider_name }}
+    --from-file=htpasswd=/tmp/htpasswd
+    -n openshift-config --dry-run=client -o yaml | oc apply -f -
+  register: create_secret
+  changed_when: "'created' in create_secret.stdout"
+
+- name: Get current OAuth
+  ansible.builtin.command: >
+    oc get oauth cluster -o json
+  register: oauth_config
+
+- name: Convert JSON to dict
+  ansible.builtin.set_fact:
+    oauth_json: "{{ oauth_config.stdout | from_json }}"
+
+- name: Extract current providers (default to empty list)
+  set_fact:
+    current_identity_providers: "{{ oauth_json.spec.identityProviders | default([]) }}"
+
+- name: "Check if {{ provider_name }} provider already exists"
+  set_fact:
+    provider_exists: >-
+      {{ current_identity_providers | selectattr('name', 'equalto', provider_name ) | list | length > 0 }}
+
+- name: Add {{ provider_name }} provider if it doesn't exist
+  set_fact:
+    identity_providers: >-
+      {{ current_identity_providers + [ {
+        "name": provider_name,
+        "mappingMethod": "claim",
+        "type": "HTPasswd",
+        "htpasswd": {
+          "fileData": {
+            "name": provider_name
+          }
+        }
+      } ] }}
+  when: not provider_exists
+
+- name: Keep existing providers if no change
+  set_fact:
+    identity_providers: "{{ current_identity_providers }}"
+  when: provider_exists
+
+- name: Write valid OAuth config YAML with clean indentation
+  copy:
+    dest: /tmp/oauth-patched.yaml
+    content: |
+      apiVersion: config.openshift.io/v1
+      kind: OAuth
+      metadata:
+        name: cluster
+      spec:
+        identityProviders:
+      {{ identity_providers | to_yaml | indent(8, true) }}
+
+- name: Apply OAuth template
+  shell: oc apply -f /tmp/oauth-patched.yaml

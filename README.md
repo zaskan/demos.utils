@@ -34,5 +34,6 @@ Available Roles:
 - kubeconfig: create a kubeconfig file in ansible navigator containers
 - aap_ocp: create and configure aap in ocp
 - bitwarden: install and configure Bitwarden in OpenShift for secret management
+- htpasswd_provider: configure a htpasswd provider and add users
 
 TODO: review and describe servicenow and velero_backup roles

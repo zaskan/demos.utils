@@ -1,0 +1,37 @@
+- name: Get current OAuth config
+  command: oc get oauth cluster -o json
+  register: oauth_config
+
+- name: Parse current OAuth JSON
+  set_fact:
+    oauth_json: "{{ oauth_config.stdout | from_json }}"
+
+- name: "Filter out {{ provider_name }} identity provider"
+  set_fact:
+    identity_providers: >-
+      {{
+        oauth_json.spec.identityProviders
+        | rejectattr('name', 'equalto', provider_name)
+        | list
+      }}
+
+- name: "Write updated OAuth config without {{ provider_name }}"
+  copy:
+    dest: /tmp/oauth-patched-removed.yaml
+    content: |
+      apiVersion: config.openshift.io/v1
+      kind: OAuth
+      metadata:
+        name: cluster
+      spec:
+        identityProviders:
+      {{ identity_providers | to_yaml | indent(8, true) }}
+
+- name: Apply updated OAuth config
+  command: oc apply -f /tmp/oauth-patched-removed.yaml
+
+- name: Delete 'hackathon-secret' secret if it exists
+  command: oc delete secret {{ provider_name }} -n openshift-config
+  register: delete_secret
+  failed_when: false
+  changed_when: "'deleted' in delete_secret.stdout"
