@@ -82,6 +82,7 @@
       send_notify: false
     status_code: 200
     validate_certs: false
+  ignore_errors: true
   retries: 5
   delay: 10
 
