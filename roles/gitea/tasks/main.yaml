@@ -80,7 +80,8 @@
       retype: "openshift"
       email: "gitea@gitea.com"
       send_notify: false
-    status_code: [200, 303]
+    status_code: 200
+    ignore_errors: true
     validate_certs: false
   retries: 5
   delay: 10
