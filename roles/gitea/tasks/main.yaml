@@ -67,24 +67,6 @@
     wait_sleep: 10
     wait_timeout: 360
 
-- name: SignUp Gitea Admin
-  ansible.builtin.uri:
-    url: "https://gitea-{{ gitea.namespace }}.apps.{{ gitea.ocp_domain }}/user/sign_up"
-    method: POST
-    headers:
-          Content-Type: "application/json"
-    body_format: json
-    body:
-      username: "gitea"
-      password: "openshift"
-      retype: "openshift"
-      email: "gitea@gitea.com"
-      send_notify: false
-    status_code: 200
-    validate_certs: false
-  retries: 5
-  delay: 10
-
 - name: Create Gitea Repositories
   include_tasks: create_repos.yaml
   loop: "{{ gitea.repositories }}"
