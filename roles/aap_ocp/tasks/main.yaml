@@ -20,9 +20,8 @@
           disabled: true
         hub:
           disabled: false
-          replicas: 2
-          storage_type: file
-          file_storage_access_mode: ReadWriteMany
+          replicas: 1
+          file_storage_access_mode: ReadWriteOnce
           file_storage_size: 100Gi
           gunicorn_api_workers: 1
           gunicorn_content_workers: 1
