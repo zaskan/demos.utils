@@ -19,51 +19,11 @@
         lightspeed:
           disabled: true
         hub:
-          nginx_proxy_send_timeout: 120s
-          gunicorn_content_workers: 2
-          gunicorn_api_workers: 2
-          route_tls_termination_mechanism: Edge
-          ingress_type: Route
-          loadbalancer_port: 80
-          no_log: true
-          file_storage_size: 100Gi
-          image_pull_policy: IfNotPresent
-          nginx_proxy_read_timeout: 120s
-          gunicorn_timeout: 90
-          nginx_client_max_body_size: 10m
-          web:
-            replicas: 1
-          nginx_proxy_connect_timeout: 120s
-          public_base_url: ''
-          haproxy_timeout: 180s
+          disabled: false
           file_storage_access_mode: ReadWriteOnce
-          content:
-            log_level: INFO
-            replicas: 1
-          postgres_storage_requirements:
-            limits:
-              storage: 50Gi
-            requests:
-              storage: 8Gi
-          api:
-            log_level: INFO
-            replicas: 1
-          force_drop_db: false
-          postgres_resource_requirements:
-            limits:
-              cpu: 1000m
-              memory: 8Gi
-            requests:
-              cpu: 500m
-              memory: 2Gi
-          redis:
-            log_level: INFO
-            replicas: 1
-          loadbalancer_protocol: http
-          resource_manager:
-            replicas: 1
-          worker:
-            replicas: 1
+          file_storage_size: 100Gi
+          gunicorn_api_workers: 1
+          gunicorn_content_workers: 1
         api:
           log_level: INFO
           replicas: 2
