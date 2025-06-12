@@ -8,37 +8,20 @@
         name: "{{ aap_ocp.name }}"
         namespace: "{{ aap_ocp.namespace }}"
       spec:
-        eda:
-          disabled: false
-        route_tls_termination_mechanism: Edge
-        service_type: ClusterIP
-        ingress_type: Route
-        no_log: true
-        redis_mode: standalone
-        image_pull_policy: Always
-        lightspeed:
-          disabled: true
+        api:
+          log_level: INFO
+          replicas: 1
+        database:
+          postgres_data_volume_init: false
         hub:
           disabled: false
           file_storage_access_mode: ReadWriteOnce
           file_storage_size: 100Gi
           gunicorn_api_workers: 1
           gunicorn_content_workers: 1
-        api:
-          log_level: INFO
-          replicas: 2
-        database:
-          postgres_data_volume_init: false
-          resource_requirements:
-            requests:
-              cpu: 200m
-              memory: 512Mi
-          storage_requirements:
-            requests:
-              storage: 100Gi
-        controller:
-          replicas: 2
-          disabled: false
+        no_log: true
+        redis_mode: standalone
+        route_tls_termination_mechanism: Edge
 
 - name: Wait for Ansible Controller Route to be Created
   kubernetes.core.k8s_info:
