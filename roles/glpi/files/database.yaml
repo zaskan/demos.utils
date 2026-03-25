@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glpi-db
+  namespace: glpi
+  labels:
+    app.kubernetes.io/instance: glpi
+spec:
+  selector:
+    matchLabels:
+      app: glpi-db
+  template:
+    metadata:
+      labels:
+        app: glpi-db
+        app.kubernetes.io/instance: glpi
+    spec:
+      containers:
+      - name: mariadb
+        image: mariadb:10.11 # Versión estable y compatible con GLPI 10
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: adminrootpass
+        - name: MYSQL_DATABASE
+          value: glpidb
+        - name: MYSQL_USER
+          value: glpiuser
+        - name: MYSQL_PASSWORD
+          value: glpipass
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: db-data
+          mountPath: /var/lib/mysql # Ruta corregida
+      volumes:
+      - name: db-data
+        persistentVolumeClaim:
+          claimName: glpi-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: glpi-db-service
+  namespace: glpi
+  labels:
+    app.kubernetes.io/instance: glpi
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: glpi-db

@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glpi-app
+  namespace: glpi
+  labels:
+    app.kubernetes.io/instance: glpi
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: glpi-app
+  template:
+    metadata:
+      labels:
+        app: glpi-app
+        app.kubernetes.io/instance: glpi
+    spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          command: 
+            - sh
+            - -c
+            - |
+              mkdir -p /var/glpi/config /var/glpi/files /var/glpi/marketplace
+              if [ -d /tmp/config ]; then
+                cp /tmp/config/config_db.php /var/glpi/config/config_db.php || true
+              fi
+              chown -R 33:33 /var/glpi
+              chmod -R 775 /var/glpi
+          volumeMounts:
+            - name: glpi-storage
+              mountPath: /var/glpi
+            - name: db-config-source
+              mountPath: /tmp/config
+      containers:
+        - name: glpi-container
+          image: glpi/glpi:latest
+          ports:
+            - containerPort: 80
+              name: http
+          env:
+            - name: GLPI_DB_HOST
+              value: "glpi-db-service"
+          volumeMounts:
+            - name: glpi-storage
+              mountPath: /var/glpi
+      volumes:
+        - name: glpi-storage
+          persistentVolumeClaim:
+            claimName: glpi-data-pvc
+        - name: db-config-source
+          configMap:
+            name: glpi-db-config

@@ -1,0 +1,83 @@
+#SPDX-License-Identifier: MIT-0
+---
+- name: Start GLPI Deploy
+  ansible.builtin.debug:
+    msg: "Starting GLPI Deployment and Configuration"
+
+- name: Create GLPI Namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: project.openshift.io/v1
+      kind: Project
+      metadata:
+        name: "glpi"
+
+- name: Grant anyuid policy to default service account
+  ansible.builtin.shell: |
+    oc adm policy add-scc-to-user anyuid -z default -n glpi
+  register: scc_result
+  changed_when: "'added' in scc_result.stdout"
+  failed_when: false
+
+- name: Apply kubernetes manifests
+  kubernetes.core.k8s:
+    state: present
+    namespace: glpi
+    src: "{{ item }}"
+  loop:
+    - ./pvc.yaml
+    - ./configmap-db.yaml
+    - ./database.yaml
+    - ./deployment.yaml
+    - ./network.yaml
+
+- name: Wait for GLPI pod to be ready
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: glpi
+    label_selectors:
+      - "app=glpi-app"
+      - "app.kubernetes.io/instance=glpi"
+  register: pod_list
+  until: 
+    - pod_list.resources | length > 0
+    - pod_list.resources[0].status.phase == "Running"
+  retries: 30
+  delay: 10
+
+- name: Initialize database via console
+  kubernetes.core.k8s_exec:
+    namespace: glpi
+    pod: "{{ pod_list.resources[0].metadata.name }}"
+    container: glpi-container
+    command: >
+      php bin/console db:install 
+      --db-host=glpi-db-service 
+      --db-name=glpidb 
+      --db-user=glpiuser 
+      --db-password=glpipass 
+      --no-interaction --force --reconfigure
+  register: install_result
+  failed_when: 
+    - install_result.rc != 0 
+    - "'already contains tables' not in install_result.stdout"
+    - "'Installation successful' not in install_result.stdout"
+
+- name: Remove installation directory
+  kubernetes.core.k8s_exec:
+    namespace: glpi
+    pod: "{{ pod_list.resources[0].metadata.name }}"
+    container: glpi-container
+    command: rm -rf install/install.php
+
+- name: Get route address
+  kubernetes.core.k8s_info:
+    kind: Route
+    namespace: glpi
+    name: glpi-route
+  register: route_info
+
+- name: Display access url
+  ansible.builtin.debug:
+    msg: "Deployment finished. Access at: https://{{ route_info.resources[0].spec.host }}"

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: glpi-service
+  namespace: glpi
+  labels:
+    app.kubernetes.io/instance: glpi
+spec:
+  selector:
+    app: glpi-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: glpi-route
+  namespace: glpi
+  labels:
+    app.kubernetes.io/instance: glpi
+spec:
+  to:
+    kind: Service
+    name: glpi-service
+  port:
+    targetPort: 80
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Allow

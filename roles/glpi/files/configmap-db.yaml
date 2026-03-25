@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: glpi
+  name: glpi-db-config
+  labels:
+    app.kubernetes.io/instance: glpi
+data:
+  config_db.php: |
+    <?php
+    return [
+        'dbhost'        => 'glpi-db-service',
+        'dbport'        => '3306',
+        'dbuser'        => 'glpiuser',
+        'dbpassword'    => 'glpipass',
+        'dbname'        => 'glpidb',
+        'use_utf8mb4'   => true,
+        'allow_myisam'  => false,
+        'allow_datetime' => true,
+    ];
