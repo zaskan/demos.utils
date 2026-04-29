@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ irc_agent_configmap_env_name }}
+  namespace: {{ irc_agent_namespace }}
+  labels:
+    app: {{ irc_agent_app }}
+    app.kubernetes.io/managed-by: irc_agent
+data:
+  IRC_HOST: "{{ irc_agent_irc_host | string }}"
+  IRC_PORT: "{{ irc_agent_irc_port | string }}"
+  IRC_CHANNEL: "{{ irc_agent_irc_channel | string }}"
+  IRC_NICK: "{{ irc_agent_irc_nick | string }}"
+  IRC_TLS: "{{ irc_agent_irc_tls | string }}"
+{% if irc_agent_ergo_pass_account_style | default(true) | bool %}
+  IRC_ACCOUNT: "{{ irc_agent_irc_nick | string }}"
+{% endif %}
+  LLM_BASE_URL: "{{ irc_agent_llm_base_url | string }}"
+  LLM_MODEL: "{{ irc_agent_llm_model | string }}"
+  LLM_TIMEOUT: "{{ irc_agent_llm_timeout | string }}"

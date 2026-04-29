@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ irc_agent_app }}
+  namespace: {{ irc_agent_namespace }}
+  labels:
+    app: {{ irc_agent_app }}
+    app.kubernetes.io/managed-by: irc_agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ irc_agent_app }}
+  template:
+    metadata:
+      labels:
+        app: {{ irc_agent_app }}
+    spec:
+      containers:
+        - name: {{ irc_agent_app }}
+          image: {{ irc_agent_image }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              # OpenShift: arbitrary non-root UID; HOME is often / so pip cannot write ~/.local
+              export HOME="/tmp"
+              export PIP_NO_CACHE_DIR=1
+              export XDG_CACHE_HOME="/tmp/.cache"
+              python3 -m pip install --user -q --no-warn-script-location -r /app/requirements.txt
+              exec python3 /app/bot.py
+          envFrom:
+            - configMapRef:
+                name: {{ irc_agent_configmap_env_name }}
+            - secretRef:
+                name: {{ irc_agent_secret_name }}
+          volumeMounts:
+            - name: bot-code
+              mountPath: /app
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+      volumes:
+        - name: bot-code
+          configMap:
+            name: {{ irc_agent_configmap_name }}
+            defaultMode: 420

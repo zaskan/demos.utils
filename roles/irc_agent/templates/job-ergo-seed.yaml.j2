@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ irc_agent_ergo_seed_app }}
+  namespace: {{ irc_agent_namespace }}
+  labels:
+    app: {{ irc_agent_ergo_seed_app }}
+    app.kubernetes.io/managed-by: irc_agent
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: {{ irc_agent_ergo_seed_app }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ergo-seed
+          image: {{ irc_agent_ergo_seed_image }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - python /scripts/register.py
+          env:
+            - name: IRC_HOST
+              value: "{{ irc_agent_irc_host | string }}"
+            - name: IRC_PORT
+              value: "{{ irc_agent_irc_port | string }}"
+            - name: IRC_NICK
+              value: "{{ irc_agent_irc_nick | string }}"
+            - name: IRC_PASSWORD
+              value: "{{ irc_agent_irc_account_password | string }}"
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: "500m"
+              memory: 256Mi
+      volumes:
+        - name: script
+          configMap:
+            name: {{ irc_agent_ergo_seed_configmap }}
+            defaultMode: 420
+            items:
+              - key: register.py
+                path: register.py

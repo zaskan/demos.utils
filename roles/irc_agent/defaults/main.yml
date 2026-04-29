@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Override via play vars or set IRC_AGENT_* in the environment (see tasks/init.yaml).
+---
+# —— OpenShift / Kubernetes ——
+irc_agent_namespace: "chat-irc-agent"
+irc_agent_app: "irc-agent"
+irc_agent_ergo_seed_app: "irc-agent-ergo-seed"
+# Pulled on deploy; no custom image build required in phase 1 (pip install at startup)
+irc_agent_image: "docker.io/library/python:3.12-slim"
+# Same image for the one-shot registration Job (raw socket, stdlib only)
+irc_agent_ergo_seed_image: "docker.io/library/python:3.12-slim"
+irc_agent_create_project: true
+irc_agent_configmap_name: "irc-agent-bot"
+irc_agent_ergo_seed_configmap: "irc-agent-ergo-seed-script"
+irc_agent_configmap_env_name: "irc-agent-env"
+irc_agent_secret_name: "irc-agent-credentials"
+irc_agent_wait_pod_timeout: 300
+# If false, a failed/timeout NickServ registration Job will not block creating the Secret + Deployment (you can fix the account and re-run).
+irc_agent_fail_on_ergo_seed: false
+# Auto NickServ REGISTER + place password in Secret; skip if the Secret already exists
+irc_agent_auto_provision_ergo_account: true
+# If true, the bot uses Ergo "PASS account:password" (see accounts.login-via-pass-command in ircd.yaml)
+irc_agent_ergo_pass_account_style: true
+# OpenShift project where irc_stack deployed Ergo (to read ircd.yaml from ConfigMap)
+irc_agent_ergo_ircd_namespace: "chat-irc-stack"
+# Must match irc_stack's <ergo app>-ircd, usually ergo-ircd
+irc_agent_ergo_ircd_configmap: "ergo-ircd"
+# Key inside that ConfigMap
+irc_agent_ergo_ircd_config_key: "ircd.yaml"
+# If true, read the live ircd.yaml; require accounts.registration.enabled: true to auto-provision
+irc_agent_ergo_inspect_ircd: true
+
+# —— IRC (plain Ergo in-cluster, e.g. ergo.<namespace>.svc:6667) ——
+# Required at deploy: host, channel
+irc_agent_irc_host: "ergo.chat-irc-stack.svc.cluster.local"
+irc_agent_irc_port: "6667"
+# "1" / "true" / "0" for IRC_TLS
+irc_agent_irc_tls: "0"
+irc_agent_irc_channel: "#it-operations"
+irc_agent_irc_nick: "AIopsBot"
+# If auto_provision: generated or taken from this when set (and Secret missing)
+irc_agent_irc_password: ""
+
+# —— LLM (OpenAI-compatible HTTP API) ——
+# e.g. https://api.openai.com/v1 or your in-cluster / gateway URL ending in /v1
+irc_agent_llm_base_url: ""
+irc_agent_llm_model: "gpt-4o-mini"
+# Required: API key (also via IRC_AGENT_LLM_API_KEY for ansible/env)
+irc_agent_llm_api_key: ""
+# Optional: LLM request timeout in seconds
+irc_agent_llm_timeout: "120"

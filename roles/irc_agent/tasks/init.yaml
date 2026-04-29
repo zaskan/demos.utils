@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Optional: IRC_AGENT_* in the environment override defaults (test / CI / shell).
+---
+- name: Set irc_agent options from environment when set
+  ansible.builtin.set_fact:
+    irc_agent_namespace: "{{ (lookup('env', 'IRC_AGENT_NAMESPACE', default=irc_agent_namespace) | string) | trim or irc_agent_namespace }}"
+    irc_agent_image: "{{ (lookup('env', 'IRC_AGENT_IMAGE', default=irc_agent_image) | string) | trim or irc_agent_image }}"
+    irc_agent_create_project: "{{ (lookup('env', 'IRC_AGENT_CREATE_PROJECT', default=irc_agent_create_project | bool | ternary('1', '0')) | string | lower) not in ['0', 'false', 'no', 'n'] }}"
+    irc_agent_irc_host: "{{ (lookup('env', 'IRC_AGENT_IRC_HOST', default=irc_agent_irc_host) | string) | trim }}"
+    irc_agent_irc_port: "{{ (lookup('env', 'IRC_AGENT_IRC_PORT', default=irc_agent_irc_port) | string) | trim or irc_agent_irc_port }}"
+    irc_agent_irc_tls: "{{ (lookup('env', 'IRC_AGENT_IRC_TLS', default=irc_agent_irc_tls) | string) | trim or irc_agent_irc_tls }}"
+    irc_agent_irc_channel: "{{ (lookup('env', 'IRC_AGENT_IRC_CHANNEL', default=irc_agent_irc_channel) | string) | trim }}"
+    irc_agent_irc_nick: "{{ (lookup('env', 'IRC_AGENT_IRC_NICK', default=irc_agent_irc_nick) | string) | trim or irc_agent_irc_nick }}"
+    irc_agent_irc_password: "{{ (lookup('env', 'IRC_AGENT_IRC_PASSWORD', default=irc_agent_irc_password) | string) | trim }}"
+    irc_agent_auto_provision_ergo_account: "{{ (lookup('env', 'IRC_AGENT_AUTO_PROVISION', default=irc_agent_auto_provision_ergo_account | bool | ternary('1', '0')) | string | lower) not in ['0', 'false', 'no', 'n'] }}"
+    irc_agent_ergo_pass_account_style: "{{ (lookup('env', 'IRC_AGENT_ERGO_PASS_ACCOUNT_STYLE', default=irc_agent_ergo_pass_account_style | bool | ternary('1', '0')) | string | lower) not in ['0', 'false', 'no', 'n'] }}"
+    irc_agent_ergo_ircd_namespace: "{{ (lookup('env', 'IRC_AGENT_ERGO_IRCD_NAMESPACE', default=irc_agent_ergo_ircd_namespace) | string) | trim }}"
+    irc_agent_ergo_ircd_configmap: "{{ (lookup('env', 'IRC_AGENT_ERGO_IRCD_CONFIGMAP', default=irc_agent_ergo_ircd_configmap) | string) | trim or irc_agent_ergo_ircd_configmap }}"
+    irc_agent_ergo_ircd_config_key: "{{ (lookup('env', 'IRC_AGENT_ERGO_IRCD_CONFIG_KEY', default=irc_agent_ergo_ircd_config_key) | string) | trim or irc_agent_ergo_ircd_config_key }}"
+    irc_agent_ergo_inspect_ircd: "{{ (lookup('env', 'IRC_AGENT_ERGO_INSPECT_IRCD', default=irc_agent_ergo_inspect_ircd | bool | ternary('1', '0')) | string | lower) not in ['0', 'false', 'no', 'n'] }}"
+    irc_agent_ergo_seed_image: "{{ (lookup('env', 'IRC_AGENT_ERGO_SEED_IMAGE', default=irc_agent_ergo_seed_image) | string) | trim or irc_agent_ergo_seed_image }}"
+    irc_agent_fail_on_ergo_seed: "{{ (lookup('env', 'IRC_AGENT_FAIL_ON_ERGO_SEED', default=irc_agent_fail_on_ergo_seed | bool | ternary('1', '0')) | string | lower) not in ['0', 'false', 'no', 'n', ''] }}"
+    irc_agent_llm_base_url: "{{ (lookup('env', 'IRC_AGENT_LLM_BASE_URL', default=irc_agent_llm_base_url) | string) | trim }}"
+    irc_agent_llm_model: "{{ (lookup('env', 'IRC_AGENT_LLM_MODEL', default=irc_agent_llm_model) | string) | trim or irc_agent_llm_model }}"
+    irc_agent_llm_timeout: "{{ (lookup('env', 'IRC_AGENT_LLM_TIMEOUT', default=irc_agent_llm_timeout) | string) | trim or irc_agent_llm_timeout }}"
+    irc_agent_llm_api_key: "{{ (lookup('env', 'IRC_AGENT_LLM_API_KEY', default=irc_agent_llm_api_key) | string) | trim }}"
+
+- name: Assert required irc_agent configuration
+  ansible.builtin.assert:
+    that:
+      - irc_agent_irc_host | default('') | string | length > 0
+      - irc_agent_irc_channel | default('') | string | length > 0
+      - irc_agent_llm_base_url | default('') | string | length > 0
+      - irc_agent_llm_api_key | default('') | string | length > 0
+    fail_msg: >-
+      Set irc agent vars or export IRC_AGENT_IRC_HOST, IRC_AGENT_IRC_CHANNEL,
+      IRC_AGENT_LLM_BASE_URL, IRC_AGENT_LLM_API_KEY (and optional rest). See
+      roles/irc_agent/defaults/main.yml
+
+- name: Assert NickServ / IRC account password when not using auto-provision
+  when: not irc_agent_auto_provision_ergo_account | default(true) | bool
+  ansible.builtin.assert:
+    that:
+      - irc_agent_irc_password | default('') | string | length > 0
+    fail_msg: >-
+      Set irc_agent_irc_password (or IRC_AGENT_IRC_PASSWORD), or enable
+      irc_agent_auto_provision_ergo_account (default true) to register via NickServ.

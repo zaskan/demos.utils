@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Expects a valid kubeconfig (e.g. oc login). Optional: see defaults/main.yml.
+---
+- name: Load and validate configuration
+  ansible.builtin.include_tasks: init.yaml
+
+- name: Create OpenShift project
+  when: irc_agent_create_project | default(true) | bool
+  kubernetes.core.k8s:
+    state: present
+    template: 00-project.yaml.j2
+
+- name: Read Ergo ircd from cluster and validate registration policy
+  ansible.builtin.include_tasks: ergo_ircd_inspect.yaml
+  when: not ansible_check_mode | default(false) | bool
+
+- name: Check mode — placeholder IRC account password (no cluster calls in seed path)
+  when: ansible_check_mode | default(false) | bool
+  ansible.builtin.set_fact:
+    irc_agent_irc_account_password: "{{ irc_agent_irc_password | default('CHECK-MODE-PLACEHOLDER-IRC') }}"
+    irc_agent_irc_password: "{{ irc_agent_irc_password | default('CHECK-MODE-PLACEHOLDER-IRC') }}"
+
+- name: Create or reuse NickServ account password and optional registration Job
+  ansible.builtin.include_tasks: ergo_provision_account.yaml
+  when: not ansible_check_mode | default(false) | bool
+
+- name: Create ConfigMap for bot code and requirements
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ irc_agent_configmap_name }}"
+        namespace: "{{ irc_agent_namespace }}"
+        labels:
+          app: "{{ irc_agent_app }}"
+          app.kubernetes.io/managed-by: irc_agent
+      data:
+        requirements.txt: "{{ lookup('file', role_path + '/files/bot/requirements.txt') }}"
+        bot.py: "{{ lookup('file', role_path + '/files/bot/irc_agent_bot.py') }}"
+
+- name: Create ConfigMap for non-secret environment
+  kubernetes.core.k8s:
+    state: present
+    template: configmap-irc-agent-env.yaml.j2
+
+- name: Apply irc agent credentials Secret
+  kubernetes.core.k8s:
+    state: present
+    template: secret-irc-agent.yaml.j2
+  no_log: true
+
+- name: Create Deployment
+  kubernetes.core.k8s:
+    state: present
+    template: deployment-irc-agent.yaml.j2
+
+- name: Wait for irc agent pod to be ready
+  when: not ansible_check_mode | default(false) | bool
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ irc_agent_namespace }}"
+    label_selectors:
+      - "app={{ irc_agent_app }}"
+  register: irc_agent_pods
+  until: >-
+    ( irc_agent_pods.resources | default([]) | length > 0
+    and irc_agent_pods.resources[0].status is not none
+    and ( irc_agent_pods.resources[0].status.conditions | default([])
+    | selectattr("type", "equalto", "Ready") | list | length > 0 )
+    and ( ( irc_agent_pods.resources[0].status.conditions
+    | selectattr("type", "equalto", "Ready") | first ).status | string
+    in ["True", "true"] ) )
+  delay: 5
+  retries: "{{ (irc_agent_wait_pod_timeout | int) // 5 + 1 }}"
+
+- name: Show irc agent deployment
+  ansible.builtin.debug:
+    msg: >-
+      Namespace {{ irc_agent_namespace }}: Deployment/{{ irc_agent_app }} (image {{ irc_agent_image }}).
+      IRC {{ irc_agent_irc_host }}:{{ irc_agent_irc_port }} channel {{ irc_agent_irc_channel }}.
+      LLM base {{ irc_agent_llm_base_url }}.
+    verbosity: 0

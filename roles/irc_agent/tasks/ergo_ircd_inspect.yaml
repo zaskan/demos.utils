@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Read live ircd from the irc_stack ConfigMap (see roles/irc_stack, accounts.registration in ergo-ircd.yaml).
+---
+- name: Read Ergo ircd ConfigMap in irc_stack namespace
+  when:
+    - irc_agent_ergo_inspect_ircd | default(true) | bool
+    - irc_agent_ergo_ircd_namespace | default('') | string | length > 0
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ irc_agent_ergo_ircd_configmap | string }}"
+    namespace: "{{ irc_agent_ergo_ircd_namespace | string }}"
+  register: irc_agent_ergo_cmr
+  ignore_errors: true
+
+- name: Extract ircd.yaml from ConfigMap
+  when:
+    - irc_agent_ergo_inspect_ircd | default(true) | bool
+    - irc_agent_ergo_ircd_namespace | default('') | string | length > 0
+    - irc_agent_ergo_cmr is not failed
+    - (irc_agent_ergo_cmr.resources | default([]) | length) > 0
+  ansible.builtin.set_fact:
+    irc_agent_ergo_ircd_raw: "{{ irc_agent_ergo_cmr.resources[0].data[ircd_key] | default('') }}"
+  vars:
+    ircd_key: "{{ irc_agent_ergo_ircd_config_key | string }}"
+
+- name: Parse ircd YAML
+  when:
+    - irc_agent_ergo_ircd_raw is defined
+    - irc_agent_ergo_ircd_raw | default('') | string | length > 0
+  block:
+    - name: from_yaml
+      ansible.builtin.set_fact:
+        irc_agent_ergo_ircd_parsed: "{{ irc_agent_ergo_ircd_raw | from_yaml }}"
+  rescue:
+    - name: Invalid ircd.yaml; skip strict registration check
+      ansible.builtin.set_fact:
+        irc_agent_ergo_ircd_parsed: {}
+        irc_agent_ergo_ircd_parse_failed: true
+
+- name: Resolve accounts.registration.enabled
+  when:
+    - irc_agent_ergo_ircd_parsed is defined
+    - irc_agent_ergo_ircd_parsed is mapping
+  ansible.builtin.set_fact:
+    irc_agent_ergo_registration_enabled: >-
+      {{
+        (ircx.get('accounts', {} ).get('registration', {} )).get('enabled', true)
+        | default(true) | bool
+      }}
+  vars:
+    ircx: "{{ irc_agent_ergo_ircd_parsed | default({}) }}"
+
+- name: Assert autoprovision is possible when ircd says registration is disabled
+  when:
+    - irc_agent_ergo_ircd_parsed is defined
+    - irc_agent_ergo_ircd_parsed is mapping
+    - (irc_agent_ergo_ircd_parsed | length) > 0
+    - irc_agent_auto_provision_ergo_account | default(true) | bool
+  ansible.builtin.assert:
+    that:
+      - irc_agent_ergo_registration_enabled | default(true) | bool
+    fail_msg: >-
+      ircd.yaml has accounts.registration.enabled false, but
+      irc_agent_auto_provision_ergo_account is true. Pre-create the account (e.g. oper SAREGISTER), set
+      irc_agent_irc_password, and set irc_agent_auto_provision_ergo_account: false.
+
+- name: Warn if Ergo ircd ConfigMap was not found (inspect skipped)
+  when:
+    - irc_agent_ergo_inspect_ircd | default(true) | bool
+    - irc_agent_ergo_ircd_namespace | default('') | string | length > 0
+    - irc_agent_ergo_cmr is failed
+      or (irc_agent_ergo_cmr.resources | default([]) | length) < 1
+  ansible.builtin.debug:
+    msg: >-
+      No ConfigMap {{ irc_agent_ergo_ircd_configmap }} in {{ irc_agent_ergo_ircd_namespace }};
+      skipped accounts.registration check. Set irc_agent_ergo_ircd_namespace: "" to stop looking.

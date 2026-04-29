@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# NickServ account password: manual var, or reuse existing Secret, or random + one-shot REGISTER Job.
+---
+- name: Manual mode — use irc_agent_irc_password for NickServ (PASS account:password)
+  when: not irc_agent_auto_provision_ergo_account | default(true) | bool
+  ansible.builtin.set_fact:
+    irc_agent_irc_account_password: "{{ irc_agent_irc_password | string }}"
+
+- name: Auto mode — look for existing Secret
+  when: irc_agent_auto_provision_ergo_account | default(true) | bool
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ irc_agent_secret_name | string }}"
+    namespace: "{{ irc_agent_namespace | string }}"
+  register: irc_agent_pre_secret
+  failed_when: false
+  ignore_errors: true
+
+- name: Auto mode — reuse password from existing Secret
+  when:
+    - irc_agent_auto_provision_ergo_account | default(true) | bool
+    - irc_agent_pre_secret.resources | default([]) | length > 0
+    - irc_agent_pre_secret.resources[0].data is defined
+    - irc_agent_pre_secret.resources[0].data['IRC_PASSWORD'] is defined
+  ansible.builtin.set_fact:
+    irc_agent_irc_account_password: "{{ irc_agent_pre_secret.resources[0].data['IRC_PASSWORD'] | b64decode }}"
+
+- name: Auto mode — new password from play var or random
+  when:
+    - irc_agent_auto_provision_ergo_account | default(true) | bool
+    - irc_agent_irc_account_password is not defined
+  ansible.builtin.set_fact:
+    irc_agent_irc_account_password: "{{ (irc_agent_irc_password | default('') | string | length > 0) | ternary(irc_agent_irc_password, lookup('password', '/dev/null length=32 chars=ascii_letters,digits')) }}"
+
+- name: Auto mode — one-shot Job to NickServ REGISTER (idempotent)
+  when:
+    - irc_agent_auto_provision_ergo_account | default(true) | bool
+    - irc_agent_irc_account_password is defined
+    - irc_agent_pre_secret.resources | default([]) | length < 1
+    - not (ansible_check_mode | default(false) | bool)
+  block:
+    - name: Remove old registration Job if any
+      kubernetes.core.k8s:
+        state: absent
+        api_version: batch/v1
+        kind: Job
+        name: "{{ irc_agent_ergo_seed_app | string }}"
+        namespace: "{{ irc_agent_namespace | string }}"
+      failed_when: false
+
+    - name: Create ConfigMap with ergo_register_account.py
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: "{{ irc_agent_ergo_seed_configmap | string }}"
+            namespace: "{{ irc_agent_namespace | string }}"
+            labels:
+              app: "{{ irc_agent_ergo_seed_app | string }}"
+          data:
+            register.py: "{{ lookup('file', role_path + '/files/bot/ergo_register_account.py') }}"
+
+    - name: Create Job to register account on Ergo
+      kubernetes.core.k8s:
+        state: present
+        template: job-ergo-seed.yaml.j2
+      no_log: true
+
+    - name: Wait for registration Job to complete
+      kubernetes.core.k8s_info:
+        api_version: batch/v1
+        kind: Job
+        name: "{{ irc_agent_ergo_seed_app | string }}"
+        namespace: "{{ irc_agent_namespace | string }}"
+      register: irc_agent_ergo_seed_job
+      until: (irc_agent_ergo_seed_job.resources | default([]) | length > 0) and (irc_agent_ergo_seed_job.resources[0].status.succeeded | default(0) | int) >= 1
+      delay: 2
+      retries: 60
+      # When irc_agent_fail_on_ergo_seed is false, do not stop the play if Ergo/Job is slow or fails — Secret + Deployment still apply
+      ignore_errors: "{{ not (irc_agent_fail_on_ergo_seed | default(false) | bool) }}"
+
+    - name: Warn if NickServ registration Job did not finish successfully
+      when:
+        - not irc_agent_fail_on_ergo_seed | default(false) | bool
+        - irc_agent_ergo_seed_job is defined
+        - irc_agent_ergo_seed_job.resources | default([]) | length > 0
+        - (irc_agent_ergo_seed_job.resources[0].status.succeeded | default(0) | int) < 1
+      ansible.builtin.debug:
+        msg: >-
+          NickServ registration Job did not report success (see: oc get job -n {{ irc_agent_namespace }} {{ irc_agent_ergo_seed_app }}; oc logs job/{{ irc_agent_ergo_seed_app }} -n {{ irc_agent_namespace }}).
+          Continuing: Secret and irc-agent Deployment are still applied. Fix Ergo reachability and re-run, or set IRC_AGENT_AUTO_PROVISION=0 and IRC_AGENT_IRC_PASSWORD for a pre-registered account.
+
+- name: Expose irc password for Secret template (do not log)
+  ansible.builtin.set_fact:
+    irc_agent_irc_password: "{{ irc_agent_irc_account_password | string }}"
+  no_log: true
+  when: irc_agent_irc_account_password is defined
+
+- name: Assert account password is set
+  ansible.builtin.assert:
+    that:
+      - irc_agent_irc_account_password is defined
+      - irc_agent_irc_account_password | string | length > 0
+    fail_msg: Internal error — irc account password not set. Check irc_agent_auto_provision_ergo_account and irc_agent_irc_password.

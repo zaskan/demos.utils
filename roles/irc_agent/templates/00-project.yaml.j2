@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+---
+apiVersion: project.openshift.io/v1
+kind: Project
+metadata:
+  name: {{ irc_agent_namespace }}
+  labels:
+    app.kubernetes.io/managed-by: irc_agent
+  annotations:
+    openshift.io/description: IRC LLM agent (phase 1)

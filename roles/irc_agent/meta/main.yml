@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+---
+collections:
+  - kubernetes.core
+dependencies: []
+galaxy_info:
+  role_name: irc_agent
+  author: demos
+  description: >-
+    Deploy a minimal Python IRC bot to OpenShift that uses an OpenAI-compatible LLM
+    (HTTP) service; connect to an Ergo (or any) ircd and a channel. Phase 1: IRC + LLM.
+  company: demos
+  license: GPL-2.0-or-later
+  min_ansible_version: "2.12"
+  platforms: []
+  galaxy_tags:
+    - openshift
+    - irc
+    - llm
