@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Set Convos global "default connection" to the in-cluster Ergo Service (Convos::Core::Settings in upstream).
+---
+# k8s_exec "command" must be one str (shlex.split); ">" folds lines to spaces
+- name: Set Convos default server to in-cluster Ergo
+  when:
+    - irc_stack_convos_link_ergo | default(true) | bool
+    - not ansible_check_mode | default(false) | bool
+  kubernetes.core.k8s_exec:
+    namespace: "{{ irc_stack_namespace }}"
+    pod: "{{ irc_stack_convos_p.resources[0].metadata.name }}"
+    container: "{{ irc_stack_convos_app }}"
+    command: >-
+      /bin/sh -c "set -e; U={{ irc_stack_convos_default_irc_url | quote }};
+      export U; F={{ irc_stack_convos_forced_connection | bool | ternary('1', '0') }};
+      export F; /app/script/convos eval
+      'use Mojo::JSON qw(false true); app->core->settings->load_p->wait; app->core->settings->save_p({ default_connection => $ENV{U}, forced_connection => ( $ENV{F} + 0 ? true : false) })->wait' "
+  register: irc_stack_convos_ergo_set
+  failed_when: irc_stack_convos_ergo_set.rc | int != 0
+
+- name: Show Convos default connection to Ergo
+  when:
+    - irc_stack_convos_link_ergo | default(true) | bool
+    - irc_stack_convos_default_irc_url is defined
+  ansible.builtin.debug:
+    msg: >-
+      Convos default_connection set to {{ irc_stack_convos_default_irc_url }}{{
+      ' (only this server — forced_connection)' if irc_stack_convos_forced_connection else '' }}
+    verbosity: 1
+
+# The running convos daemon keeps the old default_connection in memory; a restart
+# re-reads /data/settings.json. A PVC (or a single pod lifetime) is required
+# for that file to still exist after rollout.
+# Same effect as `kubectl rollout restart` / `oc rollout restart` — no kubectl/oc binary required
+- name: Rollout restart Convos to load /data settings (in-cluster Ergo, not Libera)
+  when:
+    - irc_stack_convos_link_ergo | default(true) | bool
+    - irc_stack_convos_restart_on_ergo_link | default(true) | bool
+    - not ansible_check_mode | default(false) | bool
+  kubernetes.core.k8s:
+    state: patched
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ irc_stack_convos_app }}"
+    namespace: "{{ irc_stack_namespace }}"
+    definition:
+      spec:
+        template:
+          metadata:
+            annotations:
+              "kubectl.kubernetes.io/restartedAt": "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') | trim }}"
+  register: irc_stack_convos_rollout
+
+- name: Wait for Convos pod to be ready after restart
+  when:
+    - irc_stack_convos_link_ergo | default(true) | bool
+    - irc_stack_convos_restart_on_ergo_link | default(true) | bool
+    - not ansible_check_mode | default(false) | bool
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ irc_stack_namespace }}"
+    label_selectors:
+      - "{{ 'app=' + irc_stack_convos_app }}"
+  register: irc_stack_convos_p
+  until: >-
+    ( irc_stack_convos_p.resources | default([]) | length > 0
+    and irc_stack_convos_p.resources[0].status is not none
+    and ( irc_stack_convos_p.resources[0].status.conditions | default([])
+    | selectattr("type", "equalto", "Ready") | list | length > 0 )
+    and ( ( irc_stack_convos_p.resources[0].status.conditions
+    | selectattr("type", "equalto", "Ready") | first ).status | string
+    in ["True", "true"] ) )
+  delay: 5
+  retries: "{{ (irc_stack_wait_pod_timeout | int) // 5 + 1 }}"

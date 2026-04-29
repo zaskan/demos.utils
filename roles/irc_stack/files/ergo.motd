@@ -1,0 +1,4 @@
+Welcome to the IRC network powered by Ergo, deployed via the irc_stack Ansible role.
+
+For the web client, use Convos at the route URL. Server-side connection from Convos
+uses the in-cluster service ergo:6667 (plaintext within the project).

@@ -1,0 +1,184 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Expects valid kubeconfig. Required: defaults/main.yml. Rest: init.yaml (env + kubernetes.core).
+---
+- name: Load configuration from environment and cluster
+  ansible.builtin.include_tasks: init.yaml
+
+- name: Show irc stack public URL
+  ansible.builtin.debug:
+    msg: "Convos/Route: https://{{ irc_stack_fqdn }} (Route {{ irc_stack_route_k8s_name }}) — Ergo Service {{ irc_stack_ergo_app }}:6667 in-cluster"
+
+- name: Create OpenShift project
+  kubernetes.core.k8s:
+    state: present
+    template: 00-project.yaml.j2
+
+- name: Build Ergo ircd ConfigMap payload
+  ansible.builtin.set_fact:
+    irc_stack_ergo_ircd_body: >-
+      {{
+        lookup('file', role_path + '/files/ergo-ircd.yaml')
+        | replace('__IRC_STACK_ERGO_NETWORK_NAME__', irc_stack_ergo_network_name)
+        | replace('__IRC_STACK_ERGO_SVC_FQDN__', irc_stack_ergo_ircd_server_fqdn)
+        | replace("# __IRC_STACK_AUTO_JOIN__\n", irc_stack_ergo_autojoin_inject | default(''))
+      }}
+
+- name: Create ConfigMap for Ergo ircd.yaml and motd
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ irc_stack_ergo_configmap_name }}"
+        namespace: "{{ irc_stack_namespace }}"
+      data:
+        ircd.yaml: "{{ irc_stack_ergo_ircd_body }}"
+        ergo.motd: "{{ lookup('file', role_path + '/files/ergo.motd') }}"
+
+- name: Create Ergo and Convos services
+  kubernetes.core.k8s:
+    state: present
+    template: "{{ item }}"
+  loop:
+    - ergo-service.yaml.j2
+    - convos-service.yaml.j2
+  loop_control:
+    label: "{{ item }}"
+
+- name: Create Convos /data volume (PVC)
+  when: irc_stack_convos_use_pvc | default(true) | bool
+  kubernetes.core.k8s:
+    state: present
+    template: convos-pvc.yaml.j2
+
+- name: Deploy Ergo
+  kubernetes.core.k8s:
+    state: present
+    template: ergo-deployment.yaml.j2
+
+- name: Render and deploy Convos
+  kubernetes.core.k8s:
+    state: present
+    template: convos-deployment.yaml.j2
+
+- name: Wait for Ergo pod to be ready
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ irc_stack_namespace }}"
+    label_selectors:
+      - "{{ 'app=' + irc_stack_ergo_app }}"
+  register: irc_stack_ergo_p
+  until: >-
+    ( irc_stack_ergo_p.resources | default([]) | length > 0
+    and irc_stack_ergo_p.resources[0].status is not none
+    and ( irc_stack_ergo_p.resources[0].status.conditions | default([])
+    | selectattr("type", "equalto", "Ready") | list | length > 0 )
+    and ( ( irc_stack_ergo_p.resources[0].status.conditions
+    | selectattr("type", "equalto", "Ready") | first ).status | string
+    in ["True", "true"] ) )
+  delay: 5
+  retries: "{{ (irc_stack_wait_pod_timeout | int) // 5 + 1 }}"
+
+- name: Wait for Convos pod to be ready
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ irc_stack_namespace }}"
+    label_selectors:
+      - "{{ 'app=' + irc_stack_convos_app }}"
+  register: irc_stack_convos_p
+  until: >-
+    ( irc_stack_convos_p.resources | default([]) | length > 0
+    and irc_stack_convos_p.resources[0].status is not none
+    and ( irc_stack_convos_p.resources[0].status.conditions | default([])
+    | selectattr("type", "equalto", "Ready") | list | length > 0 )
+    and ( ( irc_stack_convos_p.resources[0].status.conditions
+    | selectattr("type", "equalto", "Ready") | first ).status | string
+    in ["True", "true"] ) )
+  delay: 5
+  retries: "{{ (irc_stack_wait_pod_timeout | int) // 5 + 1 }}"
+
+- name: Point Convos at the Ergo ircd (default_connection in /data)
+  ansible.builtin.include_tasks: configure_convos_ergo.yaml
+  when: irc_stack_convos_link_ergo | default(true) | bool and irc_stack_convos_default_irc_url is defined and (irc_stack_convos_default_irc_url | length) > 0
+
+- name: Discover ClusterIssuer when irc_stack_cluster_issuer is not set
+  ansible.builtin.include_tasks: resolve_cluster_issuer.yaml
+  when:
+    - irc_stack_cert_manager_tls | bool
+    - irc_stack_cluster_issuer | default('') | length < 1
+
+- name: Create cert-manager Certificate
+  when: irc_stack_cert_manager_tls | bool
+  kubernetes.core.k8s:
+    state: present
+    template: certificate.yaml.j2
+
+- name: Wait for cert-manager Certificate to be Ready
+  when: irc_stack_cert_manager_tls | bool
+  kubernetes.core.k8s_info:
+    api_version: cert-manager.io/v1
+    kind: Certificate
+    name: "{{ irc_stack_tls_cert_name }}"
+    namespace: "{{ irc_stack_namespace }}"
+  register: irc_stack_cert
+  until: >-
+    irc_stack_cert.resources | default([]) | length > 0
+    and (irc_stack_cert.resources[0].status.conditions | default([])
+    | selectattr("type", "equalto", "Ready") | list | length > 0)
+    and ((irc_stack_cert.resources[0].status.conditions
+    | selectattr("type", "equalto", "Ready") | first).status
+    in ["True", "true", true])
+  delay: 10
+  retries: "{{ (irc_stack_wait_certificate_timeout | int) // 10 + 1 }}"
+
+- name: Get TLS Secret from cert-manager
+  when: irc_stack_cert_manager_tls | bool
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: "{{ irc_stack_tls_secret_name }}"
+    namespace: "{{ irc_stack_namespace }}"
+  register: irc_stack_tls_secret
+  until: irc_stack_tls_secret.resources is defined
+    and ( irc_stack_tls_secret.resources | length) > 0
+    and irc_stack_tls_secret.resources[0].data is defined
+    and irc_stack_tls_secret.resources[0].data is mapping
+    and ("tls.crt" in irc_stack_tls_secret.resources[0].data)
+    and ("tls.key" in irc_stack_tls_secret.resources[0].data)
+  delay: 3
+  retries: 30
+  no_log: true
+
+- name: Decode cert-manager Secret into route TLS facts
+  when: irc_stack_cert_manager_tls | bool
+  block:
+    - name: Expose irc_stack_tls_crt and irc_stack_tls_key
+      ansible.builtin.set_fact:
+        irc_stack_tls_crt: "{{ irc_stack_tls_secret.resources[0].data['tls.crt'] | b64decode }}"
+        irc_stack_tls_key: "{{ irc_stack_tls_secret.resources[0].data['tls.key'] | b64decode }}"
+      no_log: true
+  rescue:
+    - name: TLS decode failed; will use default router edge TLS
+      ansible.builtin.set_fact:
+        irc_stack_cert_manager_tls: false
+
+# no_log is not used here: cert material is in set_fact/secret (still no_log); hiding this task
+# censors the OpenShift API error when the Route update fails.
+- name: Create or update OpenShift Route
+  kubernetes.core.k8s:
+    state: present
+    template: irc-stack-route.yaml.j2
+
+- name: Check Convos over HTTPS
+  when: irc_stack_verify | default(true) | bool
+  ansible.builtin.uri:
+    url: "https://{{ irc_stack_fqdn }}/"
+    follow_redirects: all
+    validate_certs: "{{ not irc_stack_verify_insecure | default(false) | bool }}"
+    return_content: false
+    status_code: [200, 301, 302, 304, 201]
+  register: irc_stack_check
+  retries: 6
+  delay: 5
+  until: irc_stack_check is not failed
+  failed_when: irc_stack_check is failed

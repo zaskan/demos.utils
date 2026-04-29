@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Required before play: set IRC_STACK_* (see roles/irc_stack/defaults/main.yml) or pass role vars; optional: init.yaml
+# (at minimum IRC_STACK_NAMESPACE, images, apps, and IRC_STACK_INIT_IMAGE).
+# Example:
+#   export IRC_STACK_NAMESPACE=irc-stack IRC_STACK_ERGO_APP=ergo IRC_STACK_CONVOS_APP=convos
+#   export IRC_STACK_ERGO_IMAGE=ghcr.io/ergochat/ergo:v2.15.0
+#   export IRC_STACK_CONVOS_IMAGE=ghcr.io/convos-chat/convos:v8.07
+#   export IRC_STACK_INIT_IMAGE=quay.io/prometheus/busybox:latest
+#   ansible-playbook -i localhost, playbooks/irc_stack_test.yml
+---
+- name: Deploy and verify irc_stack (Ergo + Convos)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: ../roles/irc_stack
+
+  post_tasks:
+    - name: Assert OpenShift Route exists
+      kubernetes.core.k8s_info:
+        kind: Route
+        api_version: route.openshift.io/v1
+        name: "{{ irc_stack_route_k8s_name }}"
+        namespace: "{{ irc_stack_namespace }}"
+      register: irc_stack_test_route
+      failed_when: irc_stack_test_route.resources | default([]) | length < 1
+
+    - name: Assert Route targets Convos service
+      ansible.builtin.assert:
+        that:
+          - irc_stack_test_route.resources[0].spec.to.name == irc_stack_convos_app
+        fail_msg: Route does not point at the Convos service
+
+    - name: Test summary
+      ansible.builtin.debug:
+        msg:
+          - "Namespace: {{ irc_stack_namespace }}"
+          - "Public URL: https://{{ irc_stack_fqdn }}/"
+          - "In-cluster Ergo: {{ irc_stack_ergo_app }}:6667"

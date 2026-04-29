@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ irc_stack_ergo_app }}
+  namespace: {{ irc_stack_namespace }}
+  labels:
+    app: {{ irc_stack_ergo_app }}
+    app.kubernetes.io/managed-by: irc_stack
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ irc_stack_ergo_app }}
+  ports:
+    - name: irc
+      port: 6667
+      targetPort: irc

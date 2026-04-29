@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Export IRC_STACK_* (see roles/irc_stack/defaults/main.yml) or set role vars.
+# From the repository root (recommended for CI):
+#   ansible-galaxy collection install kubernetes.core
+#   ansible-playbook -i localhost, playbooks/irc_stack_test.yml
+# Or from this tests/ directory (this folder's ansible.cfg sets roles_path):
+#   ansible-playbook -i inventory test.yml
+---
+- name: irc_stack role end-to-end (requires oc login and cluster)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: irc_stack

@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ irc_stack_convos_app }}
+  namespace: {{ irc_stack_namespace }}
+  labels:
+    app: {{ irc_stack_convos_app }}
+    app.kubernetes.io/managed-by: irc_stack
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ irc_stack_convos_app }}
+  template:
+    metadata:
+      labels:
+        app: {{ irc_stack_convos_app }}
+    spec:
+      containers:
+        - name: {{ irc_stack_convos_app }}
+          image: {{ irc_stack_convos_image }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CONVOS_REVERSE_PROXY
+              value: "1"
+            - name: CONVOS_REQUEST_BASE
+              value: "https://{{ irc_stack_fqdn | trim }}/"
+            - name: CONVOS_NO_ROOT_WARNING
+              value: "1"
+          volumeMounts:
+            - name: convos-data
+              mountPath: /data
+          ports:
+            - name: http
+              containerPort: 3000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: convos-data
+{% if irc_stack_convos_use_pvc | default(true) | bool %}
+          persistentVolumeClaim:
+            claimName: {{ irc_stack_convos_pvc_name }}
+{% else %}
+          emptyDir: {}
+{% endif %}

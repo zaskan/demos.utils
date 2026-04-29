@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ irc_stack_route_k8s_name }}
+  namespace: {{ irc_stack_namespace }}
+  labels:
+    app: {{ irc_stack_convos_app }}
+    app.kubernetes.io/managed-by: irc_stack
+  annotations:
+    haproxy.router.openshift.io/timeout: 60s
+spec:
+  host: "{{ irc_stack_fqdn }}"
+  to:
+    kind: Service
+    name: {{ irc_stack_convos_app }}
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+{% if irc_stack_cert_manager_tls | default(true) | bool %}
+    termination: edge
+    certificate: |
+{{ irc_stack_tls_crt | indent(6, true) }}
+    key: |
+{{ irc_stack_tls_key | indent(6, true) }}
+    insecureEdgeTerminationPolicy: Redirect
+{% else %}
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+{% endif %}
+  wildcardPolicy: None

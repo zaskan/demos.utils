@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Fills irc_stack_cluster_issuer from live cert-manager.io/ClusterIssuer objects (Ready only).
+---
+- name: List cert-manager ClusterIssuers
+  kubernetes.core.k8s_info:
+    api_version: cert-manager.io/v1
+    kind: ClusterIssuer
+  register: irc_stack_k8s_all_cluster_issuers
+
+- name: Fail if no ClusterIssuers are defined
+  ansible.builtin.fail:
+    msg: >-
+      No cert-manager ClusterIssuer resources found. Install cert-manager and create a
+      ClusterIssuer, or set irc_stack_cluster_issuer to a valid name.
+  when: irc_stack_k8s_all_cluster_issuers.resources | default([]) | length < 1
+
+- name: Reset Ready ClusterIssuer name list
+  ansible.builtin.set_fact:
+    irc_stack_ready_cluster_issuers: []
+
+- name: Collect names of ClusterIssuers in Ready state
+  ansible.builtin.set_fact:
+    irc_stack_ready_cluster_issuers: "{{ irc_stack_ready_cluster_issuers + [item.metadata.name] }}"
+  when: >-
+    (item.status.conditions | default([]) | selectattr("type", "equalto", "Ready")
+    | first | default({"status": "False"}))["status"] in ["True", "true", true]
+  loop: "{{ irc_stack_k8s_all_cluster_issuers.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Fail if no ClusterIssuer is Ready
+  ansible.builtin.fail:
+    msg: >-
+      No ClusterIssuer has status Ready=True. Fix your issuers or set
+      irc_stack_cluster_issuer to the name to use.
+  when: irc_stack_ready_cluster_issuers | length < 1
+
+- name: Pick preferred ClusterIssuer if listed in irc_stack_cluster_issuer_preference_order
+  ansible.builtin.set_fact:
+    irc_stack_cluster_issuer: "{{ item }}"
+  when:
+    - irc_stack_cluster_issuer | default('') | length < 1
+    - item in irc_stack_ready_cluster_issuers
+  loop: "{{ irc_stack_cluster_issuer_preference_order | default([]) }}"
+
+- name: Use first non-staging Ready ClusterIssuer
+  ansible.builtin.set_fact:
+    irc_stack_cluster_issuer: "{{ item }}"
+  when:
+    - irc_stack_cluster_issuer | default('') | length < 1
+    - "'staging' not in (item | lower)"
+  loop: "{{ irc_stack_ready_cluster_issuers }}"
+
+- name: Fall back to first Ready ClusterIssuer
+  ansible.builtin.set_fact:
+    irc_stack_cluster_issuer: "{{ irc_stack_ready_cluster_issuers | first }}"
+  when: irc_stack_cluster_issuer | default('') | length < 1
+
+- name: Show selected ClusterIssuer
+  ansible.builtin.debug:
+    msg: "Using cert-manager ClusterIssuer: {{ irc_stack_cluster_issuer }} (from Ready: {{ irc_stack_ready_cluster_issuers }})"

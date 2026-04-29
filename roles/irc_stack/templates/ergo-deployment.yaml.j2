@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ irc_stack_ergo_app }}
+  namespace: {{ irc_stack_namespace }}
+  labels:
+    app: {{ irc_stack_ergo_app }}
+    app.kubernetes.io/managed-by: irc_stack
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ irc_stack_ergo_app }}
+  template:
+    metadata:
+      labels:
+        app: {{ irc_stack_ergo_app }}
+    spec:
+      initContainers:
+        - name: init-ircd
+          image: {{ irc_stack_init_image }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "set -e; cp -f /config/ircd.yaml /ircd/ircd.yaml; cp -f /config/ergo.motd /ircd/ergo.motd; chmod 644 /ircd/ircd.yaml /ircd/ergo.motd"]
+          volumeMounts:
+            - name: ergo-ircd-config
+              mountPath: /config
+            - name: ircd-data
+              mountPath: /ircd
+      containers:
+        - name: {{ irc_stack_ergo_app }}
+          image: {{ irc_stack_ergo_image }}
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: ircd-data
+              mountPath: /ircd
+          ports:
+            - name: irc
+              containerPort: 6667
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          livenessProbe:
+            tcpSocket:
+              port: irc
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          readinessProbe:
+            tcpSocket:
+              port: irc
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: ircd-data
+          emptyDir: {}
+        - name: ergo-ircd-config
+          projected:
+            defaultMode: 420
+            sources:
+              - configMap:
+                  name: {{ irc_stack_ergo_configmap_name }}
+                  items:
+                    - key: ircd.yaml
+                      path: ircd.yaml
+                    - key: ergo.motd
+                      path: ergo.motd

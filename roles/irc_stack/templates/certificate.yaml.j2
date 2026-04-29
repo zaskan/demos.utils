@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# cert-manager Certificate for the public Convos / OpenShift route hostname
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ irc_stack_tls_cert_name }}
+  namespace: {{ irc_stack_namespace }}
+  labels:
+    app.kubernetes.io/managed-by: irc_stack
+spec:
+  secretName: {{ irc_stack_tls_secret_name }}
+  duration: 2160h0m0s
+  renewBefore: 360h0m0s
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  dnsNames:
+    - "{{ irc_stack_fqdn }}"
+  issuerRef:
+    name: "{{ irc_stack_cluster_issuer }}"
+    kind: ClusterIssuer
+    group: cert-manager.io

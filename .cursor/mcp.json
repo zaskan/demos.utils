@@ -1,0 +1,56 @@
+{
+  "mcpServers": {
+    "aap-mcp-job-management": {
+      "type": "http",
+      "url": "https://ansible-mcp-aap.apps.ocp.zaskan.es/job_management/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:MY_SERVICE_TOKEN}"
+      }
+    },
+    "aap-mcp-inventory-management": {
+      "type": "http",
+      "url": "https://ansible-mcp-aap.apps.ocp.zaskan.es/inventory_management/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:MY_SERVICE_TOKEN}"
+      }
+    },
+    "aap-mcp-system-monitoring": {
+      "type": "http",
+      "url": "https://ansible-mcp-aap.apps.ocp.zaskan.es/system_monitoring/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:MY_SERVICE_TOKEN}"
+      }
+    },
+    "aap-mcp-user-management": {
+      "type": "http",
+      "url": "https://ansible-mcp-aap.apps.ocp.zaskan.es/user_management/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:MY_SERVICE_TOKEN}"
+      }
+    },
+    "aap-mcp-security-compliance": {
+      "type": "http",
+      "url": "https://ansible-mcp-aap.apps.ocp.zaskan.es/security_compliance/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:MY_SERVICE_TOKEN}"
+      }
+    },
+    "aap-mcp-platform-configuration": {
+      "type": "http",
+      "url": "https://ansible-mcp-aap.apps.ocp.zaskan.es/platform_configuration/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:MY_SERVICE_TOKEN}"
+      }
+    },
+    "kubernetes-mcp-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "kubernetes-mcp-server@latest",
+        "--",
+        "--cluster-provider",
+        "kubeconfig"
+      ]
+    }
+  }
+}

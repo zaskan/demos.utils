@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+---
+apiVersion: project.openshift.io/v1
+kind: Project
+metadata:
+  name: {{ irc_stack_namespace }}
+  labels:
+    app.kubernetes.io/managed-by: irc_stack
+  annotations:
+    openshift.io/description: Ergo (IRC) and Convos (web) stack

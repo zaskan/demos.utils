@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+---
+dependencies: []
+galaxy_info:
+  role_name: irc_stack
+  author: demos
+  description: >-
+    Deploy the Ergo IRC server and Convos web client in an OpenShift project, with
+    a cert-manager-backed Route to Convos; optionally point Convos default_connection
+    at the in-cluster Ergo Service.
+  company: demos
+  license: GPL-2.0-or-later
+  min_ansible_version: "2.12"
+  platforms: []
+  galaxy_tags:
+    - openshift
+    - irc
+    - convos
+    - cert-manager

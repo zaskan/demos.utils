@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Set matching IRC_STACK_* in the environment to override; use role or play vars to override any key here.
+# Empty strings ("") mean: derive from the cluster / namespace, or from sibling defaults (see tasks/init.yaml).
+---
+# —— Required (non-empty) ——
+irc_stack_namespace: "chat-irc-stack"
+irc_stack_ergo_image: "ghcr.io/ergochat/ergo:v2.18.0"
+irc_stack_convos_image: "ghcr.io/convos-chat/convos:v8.07"
+irc_stack_ergo_app: "ergo"
+irc_stack_convos_app: "convos"
+irc_stack_init_image: "gcr.io/google-containers/busybox:1.27"
+
+# —— Ergo (optional) ——
+# Empty: derive a network name from the project name.
+irc_stack_ergo_network_name: ""
+# Empty: use <irc_stack_ergo_app>-ircd
+irc_stack_ergo_configmap_name: ""
+# Plain-text IRC on the in-cluster Service (maps to port in templates / Convos irc:// URL)
+irc_stack_ergo_irc_port: "6667"
+# Injects channels.auto-join in ergo-ircd.yaml for irc_stack_convos_default_channel
+irc_stack_ergo_enable_auto_join: true
+
+# —— Convos ↔ Ergo ——
+# Default first channel in Convos; match Ergo auto-join (must include leading #)
+irc_stack_convos_default_channel: "#it-operations"
+# When true, Convos forced_connection: only the default server (see tasks/configure_convos_ergo.yaml)
+irc_stack_convos_forced_connection: false
+# When true, set Convos default_connection to the in-cluster Ergo Service
+irc_stack_convos_link_ergo: true
+# Appended to the irc://… URL; Convos enables TLS on IRC by default (see Connection.pm) — use tls=0 for Ergo :6667 plaintext
+irc_stack_convos_irc_url_query: "tls=0"
+
+# —— Public host / OpenShift ——
+# Empty: look up from OpenShift Ingress / compose from route_subdomain
+irc_stack_fqdn: ""
+# Empty: use irc_stack_namespace in the per-namespace hostname
+irc_stack_route_subdomain: ""
+# cert-manager: empty to auto-pick a Ready ClusterIssuer, or the issuer resource name
+irc_stack_cluster_issuer: ""
+# Comma-separated preference when multiple issuers (empty: role logic only)
+irc_stack_cluster_issuer_preference: ""
+# K8s object name overrides (empty: namespace-based names in init.yaml)
+irc_stack_tls_secret_name: ""
+irc_stack_tls_cert_name: ""
+irc_stack_route_k8s_name: ""
+
+# —— Convos /data (settings.json and default_connection) ——
+# true: PVC; false: emptyDir (re-run configure + restart to pick up Ergo after the pod is recreated)
+irc_stack_convos_use_pvc: true
+# PVC so settings survive rollouts; size / class for your cluster
+irc_stack_convos_pvc_name: "{{ irc_stack_convos_app + '-data' }}"
+irc_stack_convos_pvc_size: 1Gi
+# Empty: cluster default StorageClass
+irc_stack_convos_pvc_storage_class: ""
+# After save_p, restart the Convos Deployment so the daemon loads Ergo (not in-memory Libera)
+irc_stack_convos_restart_on_ergo_link: true
+
+# —— Cert-manager, HTTPS checks, wait limits ——
+irc_stack_cert_manager_tls: true
+irc_stack_verify: true
+irc_stack_verify_insecure: false
+irc_stack_wait_pod_timeout: 360
+irc_stack_wait_certificate_timeout: 600

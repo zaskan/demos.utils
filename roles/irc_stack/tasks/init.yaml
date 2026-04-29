@@ -1,0 +1,122 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Required irc_stack_* keys: defaults/main.yml (IRC_STACK_* via env, or play/role override).
+# Optional: env IRC_STACK_* overrides; otherwise values come from roles/irc_stack/defaults/main.yml
+# Convos: use IRC_STACK_CONVOS_IRC_URL_QUERY (e.g. tls=0) for plaintext Ergo on 6667
+---
+- name: Require base configuration
+  ansible.builtin.assert:
+    that:
+      - irc_stack_namespace | length > 0
+      - irc_stack_ergo_image | length > 0
+      - irc_stack_convos_image | length > 0
+      - irc_stack_ergo_app | length > 0
+      - irc_stack_convos_app | length > 0
+      - irc_stack_init_image | length > 0
+    fail_msg: Set IRC_STACK_* or override variables in defaults/main.yml for this role.
+
+- name: Set optional Ergo network name
+  ansible.builtin.set_fact:
+    irc_stack_ergo_network_name: "{{ ((lookup('env', 'IRC_STACK_ERGO_NETWORK_NAME', default=irc_stack_ergo_network_name) | string) | trim) or (irc_stack_namespace | upper | regex_replace('[^A-Za-z0-9]', '')) }}"
+
+# Ergo ircd server FQDN used inside the cluster
+- name: Set Ergo ircd server FQDN and ConfigMap name
+  ansible.builtin.set_fact:
+    irc_stack_ergo_ircd_server_fqdn: "{{ irc_stack_ergo_app + '.' + irc_stack_namespace + '.svc' }}"
+    irc_stack_ergo_configmap_name: "{{ (lookup('env', 'IRC_STACK_ERGO_CONFIGMAP_NAME', default=irc_stack_ergo_configmap_name) | string | trim) or (irc_stack_ergo_app ~ '-ircd') }}"
+
+# Convos default_connection → in-cluster Ergo (see tasks/configure_convos_ergo.yaml)
+- name: Set Convos → Ergo link options
+  ansible.builtin.set_fact:
+    irc_stack_ergo_irc_port: "{{ (lookup('env', 'IRC_STACK_ERGO_IRC_PORT', default=irc_stack_ergo_irc_port) | string) | trim }}"
+    irc_stack_convos_default_channel: "{{ (lookup('env', 'IRC_STACK_CONVOS_DEFAULT_CHANNEL', default=irc_stack_convos_default_channel) | string) | trim }}"
+    irc_stack_convos_forced_connection: "{{ (lookup('env', 'IRC_STACK_CONVOS_FORCE_DEFAULT_SERVER', default=irc_stack_convos_forced_connection | bool | ternary('1', '0')) | string | lower) in ['1', 'true', 'yes', 'y', 'on'] }}"
+    irc_stack_convos_link_ergo: "{{ (lookup('env', 'IRC_STACK_CONVOS_LINK_ERGO', default=irc_stack_convos_link_ergo | bool | ternary('true', 'false')) | string | lower) not in ['0', 'false', 'no', 'n', ''] }}"
+    irc_stack_convos_irc_url_query: "{{ (lookup('env', 'IRC_STACK_CONVOS_IRC_URL_QUERY', default=irc_stack_convos_irc_url_query) | string) | trim }}"
+
+# Query string (e.g. tls=0): required for plaintext :6667 — upstream Convos defaults to TLS otherwise
+- name: Set Convos default irc:// URL (Ergo Service in this namespace)
+  when: irc_stack_convos_link_ergo | default(true) | bool
+  ansible.builtin.set_fact:
+    irc_stack_convos_default_irc_url: >-
+      {{ 'irc://' + irc_stack_ergo_ircd_server_fqdn + ':' + irc_stack_ergo_irc_port
+      + '/%23' + (irc_stack_convos_default_channel | regex_replace('^#+', ''))
+      + (('?' + irc_stack_convos_irc_url_query) if (irc_stack_convos_irc_url_query | default('') | string | length) > 0 else '') }}
+
+# Ergo: channels.auto-join for the same channel as the Convos default irc:// path
+- name: Resolve Ergo auto-join in ircd.yaml
+  ansible.builtin.set_fact:
+    irc_stack_ergo_enable_auto_join: "{{ (lookup('env', 'IRC_STACK_ERGO_ENABLE_AUTO_JOIN', default=irc_stack_ergo_enable_auto_join | bool | ternary('true', 'false')) | string | lower) not in ['0', 'false', 'no', 'n', ''] }}"
+
+- name: Set Ergo auto-join string for ergo-ircd placeholder
+  ansible.builtin.set_fact:
+    irc_stack_ergo_autojoin_inject: "{{ ('    auto-join:\n        - \"' + ('#' + (irc_stack_convos_default_channel | regex_replace('^#+', ''))) + '\"\n') if (irc_stack_ergo_enable_auto_join | bool) else '' }}"
+
+# Optional: fixed public FQDN for the Route
+- name: Set FQDN from env or when irc_stack_fqdn is set in defaults/play
+  ansible.builtin.set_fact:
+    irc_stack_fqdn: "{{ (lookup('env', 'IRC_STACK_FQDN', default=irc_stack_fqdn) | string) | trim }}"
+  when: ((lookup('env', 'IRC_STACK_FQDN', default=irc_stack_fqdn) | string) | trim) | length > 0
+
+- name: Read default apps domain (OpenShift)
+  when: irc_stack_fqdn is not defined or irc_stack_fqdn | default('') | length < 1
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: irc_stack_ingress_init
+
+- name: Fail when FQDN cannot be determined
+  ansible.builtin.fail:
+    msg: >-
+      Set IRC_STACK_FQDN to the public hostname, or use OpenShift and ensure
+      config.openshift.io/Ingress/cluster (spec.domain) is readable.
+  when: >-
+    ( irc_stack_fqdn is not defined or irc_stack_fqdn | default('') | length < 1 ) and
+    ( ( irc_stack_ingress_init.resources | default([]) | length < 1 ) or
+      ( ( irc_stack_ingress_init.resources | default([]) | length > 0 ) and
+        ( ( irc_stack_ingress_init.resources[0].spec | default({} ) ).domain | default('') | length < 1 ) ) )
+
+- name: Compose FQDN from env subdomain (or default) and Ingress
+  when: irc_stack_fqdn is not defined or irc_stack_fqdn | default('') | length < 1
+  ansible.builtin.set_fact:
+    irc_stack_fqdn: "{{ (((lookup('env', 'IRC_STACK_ROUTE_SUBDOMAIN', default=irc_stack_route_subdomain) | string) | trim) or irc_stack_namespace) + '.' + irc_stack_ingress_init.resources[0].spec.domain }}"
+
+# ClusterIssuer: from env, or leave empty to resolve ClusterIssuers in-cluster
+- name: Set optional explicit ClusterIssuer name
+  ansible.builtin.set_fact:
+    irc_stack_cluster_issuer: "{{ (lookup('env', 'IRC_STACK_CLUSTER_ISSUER', default=irc_stack_cluster_issuer) | string) | trim }}"
+
+# Kubernetes resource name suffixes (override with env) — Secret / Certificate / Route
+- name: Set Kubernetes object names
+  ansible.builtin.set_fact:
+    irc_stack_tls_secret_name: "{{ (lookup('env', 'IRC_STACK_TLS_SECRET_NAME', default=irc_stack_tls_secret_name) | string | trim) or (irc_stack_namespace ~ '-tls') }}"
+    irc_stack_tls_cert_name: "{{ (lookup('env', 'IRC_STACK_TLS_CERT_NAME', default=irc_stack_tls_cert_name) | string | trim) or (irc_stack_namespace ~ '-tls-cert') }}"
+    irc_stack_route_k8s_name: "{{ (lookup('env', 'IRC_STACK_ROUTE_NAME', default=irc_stack_route_k8s_name) | string | trim) or (irc_stack_namespace ~ '-route') }}"
+
+# Only used when irc_stack_cluster_issuer is empty; optional CSV
+- name: Set optional ClusterIssuer preference (IRC_STACK_CLUSTER_ISSUER_PREFERENCE)
+  when: (irc_stack_cluster_issuer | default('') | length) < 1
+  ansible.builtin.set_fact:
+    irc_stack_cluster_issuer_preference_order: "{{ _ci_csv | split(',') | map('trim') | reject('match', '^$') | list }}"
+  vars:
+    _ci_csv: "{{ (lookup('env', 'IRC_STACK_CLUSTER_ISSUER_PREFERENCE', default=irc_stack_cluster_issuer_preference) | string) | trim }}"
+
+- name: Set cert manager and post-verify options
+  ansible.builtin.set_fact:
+    irc_stack_cert_manager_tls: "{{ (lookup('env', 'IRC_STACK_USE_CERT_MANAGER_TLS', default=irc_stack_cert_manager_tls | bool | ternary('true', 'false')) | string | lower) not in ['0', 'false', 'no', 'n'] }}"
+    irc_stack_verify: "{{ (lookup('env', 'IRC_STACK_HTTPS_VERIFY', default=irc_stack_verify | bool | ternary('true', 'false')) | string | lower) not in ['0', 'false', 'no', 'n'] }}"
+    irc_stack_verify_insecure: "{{ (lookup('env', 'IRC_STACK_HTTPS_INSECURE', default=irc_stack_verify_insecure | bool | ternary('1', '0')) | string | lower) in ['1', 'true', 'yes', 'y', 'on'] }}"
+
+# Wait timeouts (int seconds; env or defaults/main.yml)
+- name: Set wait timeout seconds
+  ansible.builtin.set_fact:
+    irc_stack_wait_pod_timeout: "{{ (lookup('env', 'IRC_STACK_WAIT_POD_TIMEOUT', default=irc_stack_wait_pod_timeout) | int) }}"
+    irc_stack_wait_certificate_timeout: "{{ (lookup('env', 'IRC_STACK_WAIT_CERT_TIMEOUT', default=irc_stack_wait_certificate_timeout) | int) }}"
+
+- name: Resolve whether Convos uses a PVC for /data
+  ansible.builtin.set_fact:
+    irc_stack_convos_use_pvc: "{{ (lookup('env', 'IRC_STACK_CONVOS_USE_PVC', default=irc_stack_convos_use_pvc | bool | ternary('true', 'false')) | string | lower) not in ['0', 'false', 'no', 'n', ''] }}"
+
+- name: Resolve whether to rollout-restart Convos after linking to Ergo
+  ansible.builtin.set_fact:
+    irc_stack_convos_restart_on_ergo_link: "{{ (lookup('env', 'IRC_STACK_CONVOS_RESTART_ON_ERGO', default=irc_stack_convos_restart_on_ergo_link | bool | ternary('true', 'false')) | string | lower) not in ['0', 'false', 'no', 'n', ''] }}"

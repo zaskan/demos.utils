@@ -35,5 +35,6 @@ Available Roles:
 - aap_ocp: create and configure aap in ocp
 - bitwarden: install and configure Bitwarden in OpenShift for secret management
 - htpasswd_provider: configure a htpasswd provider and add users
+- irc_stack: deploy Ergo (IRC) and Convos in OpenShift with a Route and optional cert-manager TLS; configuration is from `roles/irc_stack/defaults/main.yml` (and play/role vars), with `IRC_STACK_*` environment variables as overrides; see `tasks/init.yaml` for apply order
 
 TODO: review and describe servicenow and velero_backup roles

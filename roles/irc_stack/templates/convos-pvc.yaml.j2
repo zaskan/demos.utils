@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Persistent /data for Convos so default_connection (written by configure_convos_ergo) survives restarts
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ irc_stack_convos_pvc_name }}
+  namespace: {{ irc_stack_namespace }}
+  labels:
+    app: {{ irc_stack_convos_app }}
+    app.kubernetes.io/managed-by: irc_stack
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: "{{ irc_stack_convos_pvc_size }}"
+{% if irc_stack_convos_pvc_storage_class | string | length > 0 %}
+  storageClassName: {{ irc_stack_convos_pvc_storage_class | quote }}
+{% endif %}
