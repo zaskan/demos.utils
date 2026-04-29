@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# End-to-end deploy to OpenShift (requires: oc login or KUBECONFIG, kubernetes.core).
+#
+#   ansible-galaxy collection install kubernetes.core
+#   export IRC_AGENT_IRC_HOST=ergo.chat-irc-stack.svc
+#   export IRC_AGENT_IRC_CHANNEL='#your-channel'
+#   export IRC_AGENT_LLM_BASE_URL='https://api.openai.com/v1'
+#   export IRC_AGENT_LLM_API_KEY=sk-...
+# Optional: IRC_AGENT_NAMESPACE, IRC_AGENT_IRC_PORT, IRC_AGENT_IRC_NICK, IRC_AGENT_IRC_TLS,
+# IRC_AGENT_AUTO_PROVISION, IRC_AGENT_ERGO_IRCD_NAMESPACE, IRC_AGENT_IRC_PASSWORD (manual), …
+#
+# From this directory:
+#   ansible-playbook -i inventory test.yml
+---
+- name: irc_agent role — deploy LLM IRC bot
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: irc_agent
