@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Embed mcp.json as a YAML literal block so ConfigMap.data values stay strings (not parsed objects).
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ irc_agent_mcp_configmap_name | string }}
+  namespace: {{ irc_agent_namespace | string }}
+  labels:
+    app: {{ irc_agent_app | string }}
+    app.kubernetes.io/managed-by: irc_agent
+data:
+  mcp.json: |
+{{ lookup('template', role_path + '/templates/mcp.json.j2', convert_data=False) | indent(4, first=True) }}

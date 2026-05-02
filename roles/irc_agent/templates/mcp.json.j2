@@ -1,0 +1,65 @@
+{# SPDX-License-Identifier: GPL-2.0-or-later #}
+{# Installed as ConfigMap data — no secrets. Bearer token from Secret env AAP_MCP_SERVER_TOKEN. #}
+{% set aap_url = irc_agent_aap_mcp_server_url | default('') | string | trim %}
+{# k8s stdio: enable only if the container image provides Node/npx (not the default python slim image). #}
+{% set k8s_stdio = irc_agent_mcp_kubernetes_stdio | default(false) in [true, 'true', 'True', '1', 1, 'yes', 'on'] %}
+{% set has_aap = aap_url | length > 0 %}
+{
+  "mcpServers": {% if has_aap %}{
+    "aap-mcp-job-management": {
+      "type": "http",
+      "url": {{ aap_url | tojson }},
+      "auth": { "bearerTokenEnv": "AAP_MCP_SERVER_TOKEN" },
+      "description": "Ansible Automation Platform: job templates, workflow jobs, and job run status."
+    },
+    "aap-mcp-inventory-management": {
+      "type": "http",
+      "url": {{ aap_url | tojson }},
+      "auth": { "bearerTokenEnv": "AAP_MCP_SERVER_TOKEN" },
+      "description": "AAP: inventories, hosts, groups, and related automation context."
+    },
+    "aap-mcp-system-monitoring": {
+      "type": "http",
+      "url": {{ aap_url | tojson }},
+      "auth": { "bearerTokenEnv": "AAP_MCP_SERVER_TOKEN" },
+      "description": "AAP: metrics, health, and operational visibility for the platform."
+    },
+    "aap-mcp-user-management": {
+      "type": "http",
+      "url": {{ aap_url | tojson }},
+      "auth": { "bearerTokenEnv": "AAP_MCP_SERVER_TOKEN" },
+      "description": "AAP: users, teams, roles, and access control."
+    },
+    "aap-mcp-security-compliance": {
+      "type": "http",
+      "url": {{ aap_url | tojson }},
+      "auth": { "bearerTokenEnv": "AAP_MCP_SERVER_TOKEN" },
+      "description": "AAP: security policies, compliance posture, and audit-oriented queries."
+    },
+    "aap-mcp-platform-configuration": {
+      "type": "http",
+      "url": {{ aap_url | tojson }},
+      "auth": { "bearerTokenEnv": "AAP_MCP_SERVER_TOKEN" },
+      "description": "AAP: instance settings, credentials, execution environments, and integrations."
+    }{% if k8s_stdio %},
+    "kubernetes-mcp-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "kubernetes-mcp-server@latest", "--", "--cluster-provider", "kubeconfig"],
+      "description": "Kubernetes cluster via kubeconfig (requires Node/npx in the image or a tool wrapper)."
+    }{% endif %}
+  }{% elif k8s_stdio %}{
+    "kubernetes-mcp-server": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "kubernetes-mcp-server@latest", "--", "--cluster-provider", "kubeconfig"],
+      "description": "Kubernetes cluster via kubeconfig (requires Node/npx in the image)."
+    }
+  }{% else %}{}{% endif %},
+  "ircAgent": {
+    "allowedTools": {{ irc_agent_mcp_allowed_tools | default([]) | tojson }},
+    "maxToolRoundtrips": {{ irc_agent_mcp_max_tool_roundtrips | default(6) | int }},
+    "maxToolResultChars": {{ irc_agent_mcp_max_tool_result_chars | default(8000) | int }},
+    "maxCatalogChars": {{ irc_agent_mcp_max_catalog_chars | default(6000) | int }}
+  }
+}
