@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT-0
+---
+# Base URL of apirest.php, e.g. https://glpi.example.org/apirest.php
+# glpi_api_url: ""
+
+# From GLPI Setup → API. Optional: omit or leave empty to send no App-Token header (if GLPI allows it).
+# glpi_app_token: ""
+
+# Authentication for initSession (pick ONE primary credential path):
+# - Remote access key: set glpi_user_token (non-empty). User/password are ignored.
+# - Login + password: leave glpi_user_token unset or empty; set glpi_username and glpi_password (HTTP Basic).
+# You may combine glpi_app_token with either path, or use user/pass alone without glpi_app_token when GLPI permits.
+# glpi_user_token: ""
+glpi_username: ""
+glpi_password: ""

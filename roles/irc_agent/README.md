@@ -151,13 +151,12 @@ export IRC_AGENT_IRC_PASSWORD='your-nickserv-password'
 
 ## 5. Run the test playbook (recommended first run)
 
-The role ships a playbook under `tests/` that sets `roles_path` so the role is found as `irc_agent` when you run the playbook from that directory.
+The role ships a playbook under `tests/`; `tests/ansible.cfg` sets `roles_path` so the role resolves as `irc_agent` when you run the playbook **from** `roles/irc_agent/tests`.
 
 ```bash
 cd /path/to/demos.utils/roles/irc_agent/tests
-# Optional: load example exports (edit LLM key first; remove the file when done)
-source ./generate_test_env.sh
 ansible-galaxy collection install kubernetes.core
+# Export IRC_AGENT_* and IRC_AGENT_LLM_* (see section 4), then:
 ansible-playbook -i inventory test.yml
 ```
 

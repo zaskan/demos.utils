@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT-0
+# Non-secret settings for test.yml. Edit once per GLPI environment.
+# At runtime, pass secrets: ansible-playbook -i inventory test.yml -e @credentials.yml
+# (credentials can be user/pass only; glpi_app_token is optional if GLPI allows it.)
+# (copy credentials.yml.example → credentials.yml; credentials.yml is gitignored).
+
+glpi_api_url: "https://glpi.example.org/apirest.php"
+glpi_validate_certs: true
+
+# GLPI users.id for the ticket requester; omit this key or use 0 to skip _users_id_requester.
+glpi_incident_requester_id: 2
+
+glpi_test_title: "Ansible glpi_operations integration test"
+glpi_test_description: "<p>Open/close test via roles/glpi_operations/tests/test.yml</p>"
+glpi_test_impact: 3
+glpi_test_urgency: 3
+glpi_test_close_notes: "<p>Closed by integration test playbook.</p>"
+
+# Uncomment if your GLPI instance requires a solution type when closing:
+# glpi_solutiontypes_id: 1

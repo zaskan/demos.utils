@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: MIT-0
+# Integration test: create a GLPI Ticket (incident) then close it via roles/glpi_operations.
+#
+# 1. Edit vars.yml once (API URL, requester id, test strings).
+# 2. Copy credentials.yml.example → credentials.yml and fill in auth (user token, or user/pass; app token optional).
+# 3. Run from this directory:
+#      ansible-playbook -i inventory test.yml -e @credentials.yml
+#
+# Optional overrides still work, e.g. -e 'glpi_validate_certs=false'
+---
+- name: GLPI operations — open then close incident (Ticket)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Require GLPI API variables
+      ansible.builtin.assert:
+        that:
+          - glpi_api_url is defined and glpi_api_url | length > 0
+          - >-
+            (glpi_user_token is defined and glpi_user_token | length > 0)
+            or
+            (glpi_username is defined and glpi_username | length > 0
+            and glpi_password is defined and glpi_password | length > 0)
+        fail_msg: >-
+          Non-secret settings live in vars.yml. Provide auth in credentials.yml: either glpi_user_token,
+          or glpi_username + glpi_password (App-Token optional; omit glpi_app_token if GLPI allows it).
+          Run: ansible-playbook -i inventory test.yml -e @credentials.yml
+
+    - name: Open incident (GLPI Ticket)
+      ansible.builtin.include_role:
+        name: glpi_operations
+      vars:
+        glpi_action: open_incident
+        glpi_incident_title: "{{ glpi_test_title | default('Ansible glpi_operations test') }}"
+        glpi_incident_description: "{{ glpi_test_description | default('<p>Open/close integration test from roles/glpi_operations/tests/test.yml</p>') }}"
+        glpi_incident_impact: "{{ glpi_test_impact | default(3) }}"
+        glpi_incident_urgency: "{{ glpi_test_urgency | default(3) }}"
+
+    - name: Close incident using ticket id from open step
+      ansible.builtin.include_role:
+        name: glpi_operations
+      vars:
+        glpi_action: close_incident
+        glpi_incident_id: "{{ glpi_last_ticket_id }}"
+        glpi_incident_notes: "{{ glpi_test_close_notes | default('<p>Closed by roles/glpi_operations/tests/test.yml</p>') }}"

@@ -1,0 +1,10 @@
+---
+- name: Open GLPI incident (Ticket)
+  ansible.builtin.include_tasks:
+    file: open_incident.yaml
+  when: glpi_action == "open_incident"
+
+- name: Close GLPI incident (Ticket)
+  ansible.builtin.include_tasks:
+    file: close_incident.yaml
+  when: glpi_action == "close_incident"
