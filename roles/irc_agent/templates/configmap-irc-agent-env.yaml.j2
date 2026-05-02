@@ -8,6 +8,7 @@ metadata:
   labels:
     app: {{ irc_agent_app }}
     app.kubernetes.io/managed-by: irc_agent
+# AAP_MCP_SERVER_* keys below are always present for envFrom (values may be empty until vars/patch).
 data:
   IRC_HOST: "{{ irc_agent_irc_host | string }}"
   IRC_PORT: "{{ irc_agent_irc_port | string }}"
@@ -20,3 +21,13 @@ data:
   LLM_BASE_URL: "{{ irc_agent_llm_base_url | string }}"
   LLM_MODEL: "{{ irc_agent_llm_model | string }}"
   LLM_TIMEOUT: "{{ irc_agent_llm_timeout | string }}"
+  IRC_LLM_MAX_INPUT_TOKENS: "{{ irc_agent_llm_max_input_tokens | int }}"
+  IRC_CONTEXT_MAX_MESSAGES: "{{ irc_agent_irc_context_max_messages | int }}"
+  IRC_CONTEXT_MAX_CHARS: "{{ irc_agent_irc_context_max_chars | int }}"
+  IRC_CONTEXT_DISABLED: "{{ '1' if irc_agent_irc_context_disabled | default(false) | bool else '0' }}"
+  MCP_CONFIG_PATH: "/etc/mcp/mcp.json"
+  IRC_AGENT_MCP_ENABLED: "{{ '1' if irc_agent_mcp_enabled | default(true) | bool else '0' }}"
+  IRC_MCP_FIRST_TOOL_CHOICE: "{{ irc_agent_mcp_first_tool_choice | default('auto') | string }}"
+  IRC_MCP_HTTP_TRANSPORT: "{{ irc_agent_mcp_http_transport | default('streamable') | string }}"
+  AAP_MCP_SERVER_URL: "{{ irc_agent_aap_mcp_server_url | default('') | string | trim }}"
+  IRC_AGENT_AAP_MCP_SERVER_URL: "{{ irc_agent_aap_mcp_server_url | default('') | string | trim }}"

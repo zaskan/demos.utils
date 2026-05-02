@@ -23,7 +23,16 @@
     irc_agent_llm_base_url: "{{ (lookup('env', 'IRC_AGENT_LLM_BASE_URL', default=irc_agent_llm_base_url) | string) | trim }}"
     irc_agent_llm_model: "{{ (lookup('env', 'IRC_AGENT_LLM_MODEL', default=irc_agent_llm_model) | string) | trim or irc_agent_llm_model }}"
     irc_agent_llm_timeout: "{{ (lookup('env', 'IRC_AGENT_LLM_TIMEOUT', default=irc_agent_llm_timeout) | string) | trim or irc_agent_llm_timeout }}"
+    irc_agent_llm_max_input_tokens: "{{ lookup('env', 'IRC_AGENT_LLM_MAX_INPUT_TOKENS', default=irc_agent_llm_max_input_tokens | string) | int }}"
     irc_agent_llm_api_key: "{{ (lookup('env', 'IRC_AGENT_LLM_API_KEY', default=irc_agent_llm_api_key) | string) | trim }}"
+    irc_agent_mcp_enabled: "{{ (lookup('env', 'IRC_AGENT_MCP_ENABLED', default=irc_agent_mcp_enabled | bool | ternary('1', '0')) | string | lower) not in ['0', 'false', 'no', 'n', ''] }}"
+    irc_agent_aap_mcp_server_url: "{{ ((lookup('env', 'IRC_AGENT_AAP_MCP_SERVER_URL', default='') | string | trim) or (lookup('env', 'AAP_MCP_SERVER_URL', default='') | string | trim) or (irc_agent_aap_mcp_server_url | default('') | string)) | trim }}"
+    irc_agent_aap_mcp_server_token: "{{ ((lookup('env', 'IRC_AGENT_AAP_MCP_SERVER_TOKEN', default='') | string | trim) or (lookup('env', 'AAP_MCP_SERVER_TOKEN', default='') | string | trim) or (irc_agent_aap_mcp_server_token | default('') | string)) | trim }}"
+    irc_agent_mcp_first_tool_choice: "{{ ((lookup('env', 'IRC_AGENT_MCP_FIRST_TOOL_CHOICE', default='')) | string | trim) or (irc_agent_mcp_first_tool_choice | default('auto') | string) }}"
+    irc_agent_mcp_http_transport: "{{ ((lookup('env', 'IRC_AGENT_MCP_HTTP_TRANSPORT', default='')) | string | trim) or (irc_agent_mcp_http_transport | default('streamable') | string) }}"
+    irc_agent_irc_context_max_messages: "{{ lookup('env', 'IRC_AGENT_IRC_CONTEXT_MAX_MESSAGES', default=irc_agent_irc_context_max_messages | string) | int }}"
+    irc_agent_irc_context_max_chars: "{{ lookup('env', 'IRC_AGENT_IRC_CONTEXT_MAX_CHARS', default=irc_agent_irc_context_max_chars | string) | int }}"
+    irc_agent_irc_context_disabled: "{{ (lookup('env', 'IRC_AGENT_IRC_CONTEXT_DISABLED', default=irc_agent_irc_context_disabled | bool | ternary('1', '0')) | string | lower) not in ['0', 'false', 'no', 'n', ''] }}"
 
 - name: Assert required irc_agent configuration
   ansible.builtin.assert:
@@ -45,3 +54,15 @@
     fail_msg: >-
       Set irc_agent_irc_password (or IRC_AGENT_IRC_PASSWORD), or enable
       irc_agent_auto_provision_ergo_account (default true) to register via NickServ.
+
+- name: Assert AAP MCP bearer token when AAP MCP URL is set and MCP is enabled
+  when:
+    - irc_agent_mcp_enabled | default(true) | bool
+    - irc_agent_aap_mcp_server_url | default('') | string | trim | length > 0
+  ansible.builtin.assert:
+    that:
+      - irc_agent_aap_mcp_server_token | default('') | string | trim | length > 0
+    fail_msg: >-
+      Set irc_agent_aap_mcp_server_token (or export AAP_MCP_SERVER_TOKEN /
+      IRC_AGENT_AAP_MCP_SERVER_TOKEN) when irc_agent_aap_mcp_server_url is set, or clear the URL
+      to deploy without AAP MCP HTTP servers.

@@ -29,6 +29,7 @@ spec:
               # OpenShift: arbitrary non-root UID; HOME is often / so pip cannot write ~/.local
               export HOME="/tmp"
               export PIP_NO_CACHE_DIR=1
+              export PIP_DISABLE_PIP_VERSION_CHECK=1
               export XDG_CACHE_HOME="/tmp/.cache"
               python3 -m pip install --user -q --no-warn-script-location -r /app/requirements.txt
               exec python3 /app/bot.py
@@ -40,15 +41,23 @@ spec:
           volumeMounts:
             - name: bot-code
               mountPath: /app
+            - name: mcp-config
+              mountPath: /etc/mcp/mcp.json
+              subPath: mcp.json
+              readOnly: true
           resources:
             requests:
               cpu: 50m
-              memory: 128Mi
+              memory: 256Mi
             limits:
               cpu: "1"
-              memory: 512Mi
+              memory: 768Mi
       volumes:
         - name: bot-code
           configMap:
             name: {{ irc_agent_configmap_name }}
+            defaultMode: 420
+        - name: mcp-config
+          configMap:
+            name: {{ irc_agent_mcp_configmap_name }}
             defaultMode: 420

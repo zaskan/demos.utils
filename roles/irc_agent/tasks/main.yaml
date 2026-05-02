@@ -39,6 +39,12 @@
       data:
         requirements.txt: "{{ lookup('file', role_path + '/files/bot/requirements.txt') }}"
         bot.py: "{{ lookup('file', role_path + '/files/bot/irc_agent_bot.py') }}"
+        mcp_client.py: "{{ lookup('file', role_path + '/files/bot/mcp_client.py') }}"
+
+- name: Create ConfigMap for MCP (servers + ircAgent caps; no secrets)
+  kubernetes.core.k8s:
+    state: present
+    template: configmap-irc-agent-mcp.yaml.j2
 
 - name: Create ConfigMap for non-secret environment
   kubernetes.core.k8s:

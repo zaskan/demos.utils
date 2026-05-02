@@ -40,6 +40,10 @@ irc_agent_irc_channel: "#it-operations"
 irc_agent_irc_nick: "AIopsBot"
 # If auto_provision: generated or taken from this when set (and Secret missing)
 irc_agent_irc_password: ""
+# In-memory rolling transcript for the LLM (lost on TCP reconnect to Ergo).
+irc_agent_irc_context_max_messages: 50
+irc_agent_irc_context_max_chars: 12000
+irc_agent_irc_context_disabled: false
 
 # —— LLM (OpenAI-compatible HTTP API) ——
 # e.g. https://api.openai.com/v1 or your in-cluster / gateway URL ending in /v1
@@ -49,3 +53,23 @@ irc_agent_llm_model: "gpt-4o-mini"
 irc_agent_llm_api_key: ""
 # Optional: LLM request timeout in seconds
 irc_agent_llm_timeout: "120"
+# Soft cap on estimated input tokens (messages + tools JSON) before each completion; avoids ContextWindowExceeded on ~40k models. 0 = disable trimming.
+irc_agent_llm_max_input_tokens: 32000
+
+# —— MCP (Phase 2): mcp.json ConfigMap + Secret token ——
+# AAP: set URL (and token) from vars or IRC_AGENT_AAP_MCP_* / AAP_MCP_SERVER_* in the environment.
+irc_agent_mcp_enabled: true
+irc_agent_mcp_configmap_name: "irc-agent-mcp"
+irc_agent_aap_mcp_server_url: ""
+irc_agent_aap_mcp_server_token: ""
+# stdio MCP (e.g. kubernetes-mcp-server via npx) needs Node in the image; default off for python:slim.
+irc_agent_mcp_kubernetes_stdio: false
+# Empty list = all discovered tools; otherwise OpenAI tool names or MCP tool names (see README).
+irc_agent_mcp_allowed_tools: []
+irc_agent_mcp_max_tool_roundtrips: 6
+# First LLM turn with tools: use "required" only on gateways that support it (LiteLLM often returns 400).
+irc_agent_mcp_first_tool_choice: "auto"
+# MCP HTTP client: "streamable" (default) or "sse" for servers that expose the legacy SSE transport.
+irc_agent_mcp_http_transport: "streamable"
+irc_agent_mcp_max_tool_result_chars: 8000
+irc_agent_mcp_max_catalog_chars: 6000

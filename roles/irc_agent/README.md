@@ -1,6 +1,6 @@
 # irc_agent — OpenShift deploy for the Ergo + LLM IRC bot
 
-This Ansible role deploys a small Python bot that connects to **Ergo** (or any compatible IRCd), joins a channel, and answers with an **OpenAI-compatible** HTTP API (`/v1/chat/completions`). It is meant to run **next to** the `irc_stack` role (Ergo in one OpenShift project, the bot in another, or the same; cross-namespace Service DNS is normal).
+This Ansible role deploys a small Python bot that connects to **Ergo** (or any compatible IRCd), joins a channel, and uses an **OpenAI-compatible** HTTP API (`/v1/chat/completions`) to **decide** whether each line deserves a public reply (not only when the bot is mentioned). **Phase 2** adds an in-process **MCP client**: allowed servers and caps are defined in a rendered **`mcp.json`** (`ConfigMap`), tools are discovered at startup, and the model may call them via OpenAI-style **`tools` / `tool_calls`** when it answers (after the JSON “respond?” step). Optional **`IRC_REPLY_ONLY_WHEN_MENTIONED=1`** restores the older behaviour (only `!a …` or nick in the line). It is meant to run **next to** the `irc_stack` role (Ergo in one OpenShift project, the bot in another, or the same; cross-namespace Service DNS is normal).
 
 **License:** SPDX GPL-2.0-or-later (see role files).
 
@@ -72,6 +72,30 @@ Map these to the role (environment or `defaults/main.yml`):
 | `irc_agent_llm_api_key` | `IRC_AGENT_LLM_API_KEY` | **Bearer** token for `Authorization: Bearer ...` (required) |
 | `irc_agent_llm_model` | `IRC_AGENT_LLM_MODEL` | Model name (default `gpt-4o-mini` if you use OpenAI) |
 | `irc_agent_llm_timeout` | `IRC_AGENT_LLM_TIMEOUT` | Seconds (string in defaults) |
+| `irc_agent_llm_max_input_tokens` | `IRC_AGENT_LLM_MAX_INPUT_TOKENS` / **`IRC_LLM_MAX_INPUT_TOKENS`** (ConfigMap) | Estimated input token budget for **messages + tools JSON** before each completion. The bot trims long **tool result** text, channel/system text, then **compacts `tools[]`** (shorter descriptions → minimal JSON schemas → drops tools from the end, keeping at least one). Default **32000** (set **0** to disable). Use **28000** on strict ~40k models if the gateway still errors. |
+
+**Container-only env** (set on the Deployment if you customize it; not templated by default): `LLM_SYSTEM` (persona + appended JSON reply rules), `IRC_REPLY_ONLY_WHEN_MENTIONED` (`1` = only react to `!a …` or nick mention; default off). Default mode calls the LLM **once per channel line** from others, so traffic volume maps directly to API usage.
+
+**Conversation context** (templated by default; override with play vars or `IRC_AGENT_IRC_CONTEXT_*` when running Ansible): the bot keeps a **rolling in-memory transcript** of recent channel lines plus its own replies for this TCP session (`IRC_CONTEXT_MAX_MESSAGES`, `IRC_CONTEXT_MAX_CHARS`, `IRC_CONTEXT_DISABLED=1` to turn off). Context is **lost on reconnect** to Ergo; it is not persisted to disk.
+
+### MCP (Phase 2)
+
+The role materializes **`templates/mcp.json.j2`** into ConfigMap **`irc-agent-mcp`** (key `mcp.json`) and mounts it at **`/etc/mcp/mcp.json`**. The pod sets **`MCP_CONFIG_PATH`** and **`IRC_AGENT_MCP_ENABLED`** (`1`/`0` from `irc_agent_mcp_enabled`). There is **one audit surface**: that JSON (servers, optional `ircAgent.allowedTools`, and token/round-trip caps). **Secrets** stay out of the ConfigMap: the AAP bearer token is **`AAP_MCP_SERVER_TOKEN`** in the `irc-agent-credentials` **Secret** (from Ansible var or `AAP_MCP_SERVER_TOKEN` / `IRC_AGENT_AAP_MCP_SERVER_TOKEN` in the environment when you run the playbook).
+
+| Variable | Environment (playbook) | Meaning |
+|----------|------------------------|--------|
+| `irc_agent_mcp_enabled` | `IRC_AGENT_MCP_ENABLED` | `false`/`0` disables MCP loading (no tool calls) |
+| `irc_agent_aap_mcp_server_url` | `IRC_AGENT_AAP_MCP_SERVER_URL` or **`AAP_MCP_SERVER_URL`** | Streamable **HTTP** MCP base URL for the bundled AAP logical servers (empty = no AAP HTTP entries in `mcp.json`) |
+| `irc_agent_aap_mcp_server_token` | `IRC_AGENT_AAP_MCP_SERVER_TOKEN` or **`AAP_MCP_SERVER_TOKEN`** | Bearer token for those HTTP servers (required if the URL is set and MCP is enabled) |
+| `irc_agent_mcp_kubernetes_stdio` | (play var only) | If `true`, adds **`kubernetes-mcp-server`** (`npx …`) to `mcp.json`; requires **Node/npx** in the container image (not provided by default `python:3.12-slim`) |
+| `irc_agent_mcp_allowed_tools` | (play var only) | If non-empty, only those tool names (OpenAI-safe names or MCP tool names) are exposed to the model |
+| `irc_agent_mcp_max_tool_roundtrips` / `*_result_chars` / `*_catalog_chars` | (play var → `mcp.json` `ircAgent`) | Caps for tool loops, tool result size, and catalog size in the “respond?” system prompt |
+| `irc_agent_mcp_first_tool_choice` | `IRC_MCP_FIRST_TOOL_CHOICE` / `IRC_AGENT_MCP_FIRST_TOOL_CHOICE` | Default **`auto`** (omit forcing `tool_choice` on turn one). Use **`required`** only if your gateway supports it and you want a guaranteed first tool call. |
+| `irc_agent_mcp_http_transport` | `IRC_MCP_HTTP_TRANSPORT` | **`streamable`** (default) or **`sse`** for MCP HTTP servers that only expose the legacy SSE transport. |
+
+**Behaviour:** The bot loads MCP config once at startup, runs **`tools/list`** per distinct HTTP URL (shared session for tool calls) and per stdio server, builds OpenAI **`tools[]`**, and injects a short **catalog** into the JSON decision step so the model knows which integrations exist. When it answers with tools, **`call_tool`** is mapped to the MCP Python client (`mcp` package). The tool pass **does not stop at “checking…”**: it nudges hollow replies, runs an extra **plain** completion to turn tool output into IRC text when needed, and the JSON step may use **`"message":""`** when tools will supply the answer. **Ansible Automation Platform** operators typically set **`AAP_MCP_SERVER_URL`** and **`AAP_MCP_SERVER_TOKEN`** (or the `IRC_AGENT_AAP_MCP_*` aliases) before `ansible-playbook`.
+
+**AAP URL and token in the pod:** The role always renders **`AAP_MCP_SERVER_URL`** and **`IRC_AGENT_AAP_MCP_SERVER_URL`** (same value) on the **`irc-agent-env`** ConfigMap, and **`AAP_MCP_SERVER_TOKEN`** plus **`IRC_AGENT_AAP_MCP_SERVER_TOKEN`** on the **`irc-agent-credentials`** Secret, so `envFrom` always injects those keys (values may be empty until you set play vars or patch the objects). At runtime, **`mcp_client`** replaces the HTTP base URL in **`mcp.json`** for every server that uses **`auth.bearerTokenEnv: AAP_MCP_SERVER_TOKEN`** when **`AAP_MCP_SERVER_URL`** or **`IRC_AGENT_AAP_MCP_SERVER_URL`** is set in the environment—so you can point the bot at an in-cluster route (e.g. `http://ansible-mcp.aap.svc.cluster.local`) without re-rendering the ConfigMap. Bearer auth reads **`AAP_MCP_SERVER_TOKEN`** or **`IRC_AGENT_AAP_MCP_SERVER_TOKEN`**. Bare URLs with no path get **`/mcp`** appended by default (override with **`IRC_MCP_HTTP_PATH`** set to `-` to disable, or another path if your gateway differs).
 
 ### OpenShift / role behaviour
 
