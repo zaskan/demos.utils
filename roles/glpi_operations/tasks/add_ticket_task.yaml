@@ -1,0 +1,64 @@
+---
+- name: Initialize GLPI API session (write)
+  ansible.builtin.uri:
+    url: "{{ glpi_api_url }}/initSession?session_write=true"
+    method: GET
+    headers:
+      Content-Type: application/json
+      App-Token: "{{ glpi_app_token if (glpi_app_token is defined and glpi_app_token | length > 0) else omit }}"
+      Authorization: "{{ ('user_token ' ~ glpi_user_token) if (glpi_user_token is defined and glpi_user_token | length > 0) else omit }}"
+    url_username: "{{ glpi_username if glpi_use_basic_auth else omit }}"
+    url_password: "{{ glpi_password if glpi_use_basic_auth else omit }}"
+    force_basic_auth: "{{ glpi_use_basic_auth | bool }}"
+    validate_certs: "{{ glpi_validate_certs | default(true) }}"
+    return_content: true
+    status_code: [200]
+  register: glpi_init
+  vars:
+    glpi_use_basic_auth: >-
+      {{ (glpi_user_token is not defined or glpi_user_token | length == 0)
+      and (glpi_username is defined and glpi_username | length > 0)
+      and (glpi_password is defined and glpi_password | length > 0) }}
+  no_log: true
+
+- name: Set GLPI session token fact
+  ansible.builtin.set_fact:
+    glpi_session_token: "{{ glpi_init.json.session_token }}"
+
+- name: Build TicketTask create payload
+  ansible.builtin.set_fact:
+    glpi_tickettask_input: "{{ glpi_tickettask_base | combine(glpi_tickettask_tech_user) | combine(glpi_tickettask_tech_group) }}"
+  vars:
+    glpi_tickettask_base:
+      tickets_id: "{{ glpi_incident_id | int }}"
+      content: "{{ glpi_task_content }}"
+      state: "{{ glpi_task_state | default(1) | int }}"
+    glpi_tickettask_tech_user: "{{ {'users_id_tech': glpi_task_users_id_tech | int} if (glpi_task_users_id_tech is defined and glpi_task_users_id_tech | int != 0) else {} }}"
+    glpi_tickettask_tech_group: "{{ {'groups_id_tech': glpi_task_groups_id_tech | int} if (glpi_task_groups_id_tech is defined and glpi_task_groups_id_tech | int != 0) else {} }}"
+
+- name: Create GLPI TicketTask on existing ticket
+  ansible.builtin.uri:
+    url: "{{ glpi_api_url }}/TicketTask/"
+    method: POST
+    headers:
+      Content-Type: application/json
+      App-Token: "{{ glpi_app_token if (glpi_app_token is defined and glpi_app_token | length > 0) else omit }}"
+      Session-Token: "{{ glpi_session_token }}"
+    body_format: json
+    body:
+      input: "{{ glpi_tickettask_input }}"
+    validate_certs: "{{ glpi_validate_certs | default(true) }}"
+    return_content: true
+    status_code: [200, 201]
+
+- name: End GLPI API session
+  ansible.builtin.uri:
+    url: "{{ glpi_api_url }}/killSession"
+    method: GET
+    headers:
+      Content-Type: application/json
+      App-Token: "{{ glpi_app_token if (glpi_app_token is defined and glpi_app_token | length > 0) else omit }}"
+      Session-Token: "{{ glpi_session_token }}"
+    validate_certs: "{{ glpi_validate_certs | default(true) }}"
+    status_code: [200, 400]
+  failed_when: false

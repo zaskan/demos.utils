@@ -1,0 +1,107 @@
+---
+- name: Initialize GLPI API session (write)
+  ansible.builtin.uri:
+    url: "{{ glpi_api_url }}/initSession?session_write=true"
+    method: GET
+    headers:
+      Content-Type: application/json
+      App-Token: "{{ glpi_app_token if (glpi_app_token is defined and glpi_app_token | length > 0) else omit }}"
+      Authorization: "{{ ('user_token ' ~ glpi_user_token) if (glpi_user_token is defined and glpi_user_token | length > 0) else omit }}"
+    url_username: "{{ glpi_username if glpi_use_basic_auth else omit }}"
+    url_password: "{{ glpi_password if glpi_use_basic_auth else omit }}"
+    force_basic_auth: "{{ glpi_use_basic_auth | bool }}"
+    validate_certs: "{{ glpi_validate_certs | default(true) }}"
+    return_content: true
+    status_code: [200]
+  register: glpi_init
+  vars:
+    glpi_use_basic_auth: >-
+      {{ (glpi_user_token is not defined or glpi_user_token | length == 0)
+      and (glpi_username is defined and glpi_username | length > 0)
+      and (glpi_password is defined and glpi_password | length > 0) }}
+  no_log: true
+
+- name: Set GLPI session token fact
+  ansible.builtin.set_fact:
+    glpi_session_token: "{{ glpi_init.json.session_token }}"
+
+# GLPI expects a real file part; ansible.builtin.uri only reads from disk when the part
+# value is a mapping with `filename` = path (a bare string is sent as tiny text, which
+# breaks the upload and can surface as ERROR_UPLOAD_FILE_TOO_BIG_POST_MAX_SIZE).
+- name: Upload document file to GLPI (multipart)
+  ansible.builtin.uri:
+    url: "{{ glpi_api_url }}/Document/"
+    method: POST
+    headers:
+      App-Token: "{{ glpi_app_token if (glpi_app_token is defined and glpi_app_token | length > 0) else omit }}"
+      Session-Token: "{{ glpi_session_token }}"
+    body_format: form-multipart
+    body:
+      uploadManifest: "{{ glpi_doc_upload_manifest }}"
+      filename[0]:
+        filename: "{{ glpi_document_file }}"
+    validate_certs: "{{ glpi_validate_certs | default(true) }}"
+    return_content: true
+    status_code: [200, 201]
+  register: glpi_doc_upload
+  when: glpi_document_file is defined and glpi_document_file | length > 0
+  vars:
+    glpi_doc_basename: "{{ glpi_document_file | basename }}"
+    glpi_doc_label: "{{ glpi_document_upload_name | default(glpi_doc_basename, true) }}"
+    glpi_doc_upload_manifest: "{{ {'input': {'name': glpi_doc_label, '_filename': [glpi_doc_basename]}} | to_json }}"
+
+- name: Set resolved document id from upload response
+  ansible.builtin.set_fact:
+    glpi_resolved_document_id: "{{ glpi_doc_upload.json.id | int }}"
+  when:
+    - glpi_document_file is defined and glpi_document_file | length > 0
+    - glpi_doc_upload is defined
+    - not (glpi_doc_upload.skipped | default(false))
+    - glpi_doc_upload.json is defined
+    - glpi_doc_upload.json.id is defined
+
+- name: Use existing GLPI Document id when no file upload
+  ansible.builtin.set_fact:
+    glpi_resolved_document_id: "{{ glpi_document_id | int }}"
+  when:
+    - glpi_resolved_document_id is not defined
+    - glpi_document_id is defined
+    - glpi_document_id | int > 0
+
+- name: Require document id (set glpi_document_id or glpi_document_file)
+  ansible.builtin.assert:
+    that:
+      - glpi_resolved_document_id is defined
+      - glpi_resolved_document_id | int > 0
+    fail_msg: >-
+      Provide either glpi_document_id (existing Document) or glpi_document_file (path on the Ansible controller for multipart upload).
+
+- name: Link GLPI Document to Ticket (Document_Item)
+  ansible.builtin.uri:
+    url: "{{ glpi_api_url }}/Document_Item/"
+    method: POST
+    headers:
+      Content-Type: application/json
+      App-Token: "{{ glpi_app_token if (glpi_app_token is defined and glpi_app_token | length > 0) else omit }}"
+      Session-Token: "{{ glpi_session_token }}"
+    body_format: json
+    body:
+      input:
+        documents_id: "{{ glpi_resolved_document_id | int }}"
+        itemtype: Ticket
+        items_id: "{{ glpi_incident_id | int }}"
+    validate_certs: "{{ glpi_validate_certs | default(true) }}"
+    return_content: true
+    status_code: [200, 201]
+
+- name: End GLPI API session
+  ansible.builtin.uri:
+    url: "{{ glpi_api_url }}/killSession"
+    method: GET
+    headers:
+      Content-Type: application/json
+      App-Token: "{{ glpi_app_token if (glpi_app_token is defined and glpi_app_token | length > 0) else omit }}"
+      Session-Token: "{{ glpi_session_token }}"
+    validate_certs: "{{ glpi_validate_certs | default(true) }}"
+    status_code: [200, 400]
+  failed_when: false
