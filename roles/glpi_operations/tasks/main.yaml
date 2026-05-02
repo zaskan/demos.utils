@@ -8,3 +8,23 @@
   ansible.builtin.include_tasks:
     file: close_incident.yaml
   when: glpi_action == "close_incident"
+
+- name: Add task to existing GLPI ticket
+  ansible.builtin.include_tasks:
+    file: add_ticket_task.yaml
+  when: glpi_action == "add_ticket_task"
+
+- name: Add document to existing GLPI ticket
+  ansible.builtin.include_tasks:
+    file: add_ticket_document.yaml
+  when: glpi_action == "add_ticket_document"
+
+- name: Add ITIL solution to existing GLPI ticket
+  ansible.builtin.include_tasks:
+    file: add_ticket_solution.yaml
+  when: glpi_action == "add_ticket_solution"
+
+- name: Request approval on existing GLPI ticket
+  ansible.builtin.include_tasks:
+    file: request_ticket_approval.yaml
+  when: glpi_action == "request_ticket_approval"

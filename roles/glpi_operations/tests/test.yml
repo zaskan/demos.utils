@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT-0
-# Integration test: create a GLPI Ticket (incident) then close it via roles/glpi_operations.
+# Integration test: create a GLPI Ticket (incident), add task / solution / approval / document, then close.
 #
 # 1. Edit vars.yml once (API URL, requester id, test strings).
 # 2. Copy credentials.yml.example → credentials.yml and fill in auth (user token, or user/pass; app token optional).
@@ -8,12 +8,14 @@
 #
 # Optional overrides still work, e.g. -e 'glpi_validate_certs=false'
 ---
-- name: GLPI operations — open then close incident (Ticket)
+- name: GLPI operations — open, enrich ticket, then close (Ticket)
   hosts: localhost
   connection: local
   gather_facts: false
   vars_files:
     - vars.yml
+  vars:
+    glpi_test_document_local_path: "{{ playbook_dir }}/glpi_operations_test_attachment.txt"
   tasks:
     - name: Require GLPI API variables
       ansible.builtin.assert:
@@ -29,6 +31,13 @@
           or glpi_username + glpi_password (App-Token optional; omit glpi_app_token if GLPI allows it).
           Run: ansible-playbook -i inventory test.yml -e @credentials.yml
 
+    - name: Place small file for document upload test
+      ansible.builtin.copy:
+        dest: "{{ glpi_test_document_local_path }}"
+        content: |
+          glpi_operations integration test attachment
+        mode: "0644"
+
     - name: Open incident (GLPI Ticket)
       ansible.builtin.include_role:
         name: glpi_operations
@@ -38,6 +47,42 @@
         glpi_incident_description: "{{ glpi_test_description | default('<p>Open/close integration test from roles/glpi_operations/tests/test.yml</p>') }}"
         glpi_incident_impact: "{{ glpi_test_impact | default(3) }}"
         glpi_incident_urgency: "{{ glpi_test_urgency | default(3) }}"
+
+    - name: Add task to ticket
+      ansible.builtin.include_role:
+        name: glpi_operations
+      vars:
+        glpi_action: add_ticket_task
+        glpi_incident_id: "{{ glpi_last_ticket_id }}"
+        glpi_task_content: "{{ glpi_test_task_content | default('<p>Task from roles/glpi_operations/tests/test.yml</p>') }}"
+
+    - name: Add ITIL solution to ticket (status left configurable; default waiting in role)
+      ansible.builtin.include_role:
+        name: glpi_operations
+      vars:
+        glpi_action: add_ticket_solution
+        glpi_incident_id: "{{ glpi_last_ticket_id }}"
+        glpi_solution_content: "{{ glpi_test_solution_content | default('<p>Solution draft from integration test.</p>') }}"
+        glpi_solution_status: "{{ glpi_test_solution_status | default(2) }}"
+        glpi_solutiontypes_id: "{{ glpi_test_solutiontypes_id | default(0) | int }}"
+
+    - name: Request ticket approval
+      ansible.builtin.include_role:
+        name: glpi_operations
+      vars:
+        glpi_action: request_ticket_approval
+        glpi_incident_id: "{{ glpi_last_ticket_id }}"
+        glpi_validation_users_id: "{{ glpi_test_validation_users_id }}"
+        glpi_validation_comment: "{{ glpi_test_validation_comment | default('Please approve (integration test).') }}"
+
+    - name: Attach uploaded document to ticket
+      ansible.builtin.include_role:
+        name: glpi_operations
+      vars:
+        glpi_action: add_ticket_document
+        glpi_incident_id: "{{ glpi_last_ticket_id }}"
+        glpi_document_file: "{{ glpi_test_document_local_path }}"
+        glpi_document_upload_name: "{{ glpi_test_document_upload_name | default('glpi_operations_test_attachment.txt') }}"
 
     - name: Close incident using ticket id from open step
       ansible.builtin.include_role:

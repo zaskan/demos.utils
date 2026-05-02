@@ -16,5 +16,16 @@ glpi_test_impact: 3
 glpi_test_urgency: 3
 glpi_test_close_notes: "<p>Closed by integration test playbook.</p>"
 
+# Optional: solution type id for add_ticket_solution / close_incident when GLPI requires it.
+# glpi_test_solutiontypes_id: 1
+
+# GLPI users.id of the approver for request_ticket_approval (needs ticket validation rights on your instance).
+glpi_test_validation_users_id: 2
+
+glpi_test_task_content: "<p>Integration test task on ticket.</p>"
+glpi_test_solution_content: "<p>Integration test ITIL solution (e.g. waiting for approval).</p>"
+# GLPI ITILSolution status: 1 none, 2 waiting, 3 accepted, 4 refused (default in role is 2).
+# glpi_test_solution_status: 2
+
 # Uncomment if your GLPI instance requires a solution type when closing:
 # glpi_solutiontypes_id: 1

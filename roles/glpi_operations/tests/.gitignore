@@ -1,2 +1,5 @@
 # Local secrets for integration test (see credentials.yml.example)
 credentials.yml
+
+# Ephemeral file created by test.yml for document upload
+glpi_operations_test_attachment.txt
