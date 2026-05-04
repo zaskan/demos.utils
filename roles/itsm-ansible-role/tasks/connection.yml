@@ -12,4 +12,4 @@
     timeout: "{{ itsm_http_timeout }}"
     headers:
       Accept: application/json
-  when: itsm_seed_check_connection | bool
+  when: itsm_ansible_role_check_connection | bool

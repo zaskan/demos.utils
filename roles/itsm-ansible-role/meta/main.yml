@@ -1,0 +1,11 @@
+---
+galaxy_info:
+  role_name: itsm_ansible_role
+  author: itsm-app
+  description: >-
+    Populate and configure a demo ITSM instance via /api/v1 using HTTP Basic auth
+    (mostly non-idempotent POSTs; user creation is idempotent by username).
+  license: MIT
+  min_ansible_version: "2.14"
+
+dependencies: []

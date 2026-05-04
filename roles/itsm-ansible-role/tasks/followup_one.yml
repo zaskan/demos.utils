@@ -5,7 +5,7 @@
 
 - name: POST comment on incident (follow-up)
   ansible.builtin.uri:
-    url: "{{ itsm_api_base_url }}/api/v1/incidents/{{ itsm_incident_by_seed_key[fu.seed_key] }}/comments"
+    url: "{{ itsm_api_base_url }}/api/v1/incidents/{{ itsm_incident_by_key[fu.incident_key] }}/comments"
     method: POST
     force_basic_auth: true
     url_username: "{{ itsm_api_user }}"
@@ -42,7 +42,7 @@
 
 - name: POST close incident with KB resolution
   ansible.builtin.uri:
-    url: "{{ itsm_api_base_url }}/api/v1/incidents/{{ itsm_incident_by_seed_key[fu.seed_key] }}/close"
+    url: "{{ itsm_api_base_url }}/api/v1/incidents/{{ itsm_incident_by_key[fu.incident_key] }}/close"
     method: POST
     force_basic_auth: true
     url_username: "{{ itsm_api_user }}"
@@ -62,7 +62,7 @@
 
 - name: POST close incident without KB resolution
   ansible.builtin.uri:
-    url: "{{ itsm_api_base_url }}/api/v1/incidents/{{ itsm_incident_by_seed_key[fu.seed_key] }}/close"
+    url: "{{ itsm_api_base_url }}/api/v1/incidents/{{ itsm_incident_by_key[fu.incident_key] }}/close"
     method: POST
     force_basic_auth: true
     url_username: "{{ itsm_api_user }}"

@@ -19,13 +19,13 @@
       Content-Type: application/json
   loop: "{{ itsm_kb_articles }}"
   register: _itsm_kb_post
-  when: itsm_seed_kb | bool and itsm_kb_articles | length > 0
+  when: itsm_ansible_role_kb | bool and itsm_kb_articles | length > 0
 
 - name: Build KB title to id map
   ansible.builtin.set_fact:
     itsm_kb_by_title: "{{ itsm_kb_by_title | combine({ item.json.title: item.json.id }) }}"
   loop: "{{ _itsm_kb_post.results }}"
   when:
-    - itsm_seed_kb | bool
+    - itsm_ansible_role_kb | bool
     - _itsm_kb_post is defined
     - _itsm_kb_post.results is defined

@@ -1,10 +1,10 @@
 ---
-- name: Init lookup maps for seed role
+- name: Init lookup maps for ITSM Ansible role
   ansible.builtin.set_fact:
     itsm_asset_type_by_name: {}
     itsm_inventory_by_hostname: {}
     itsm_kb_by_title: {}
-    itsm_incident_by_seed_key: {}
+    itsm_incident_by_key: {}
 
 - name: Connection smoke check
   ansible.builtin.import_tasks: connection.yml

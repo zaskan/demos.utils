@@ -1,6 +1,6 @@
 ---
 - name: Apply incident follow-ups (comments + close)
-  when: itsm_seed_followups | bool and itsm_incident_followups | length > 0
+  when: itsm_ansible_role_followups | bool and itsm_incident_followups | length > 0
   block:
     - name: Process each follow-up definition
       ansible.builtin.include_tasks: followup_one.yml

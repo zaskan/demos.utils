@@ -1,0 +1,13 @@
+---
+# Example: bootstrap a running ITSM instance (see vars/example.yml).
+# Run from itsm-ansible-role/: ansible-playbook test/example.yml
+
+- name: Test ITSM Ansible role
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - vars/example.yml
+  roles:
+    # Role content lives at repo root; path is relative to this playbook (test/).
+    - role: "{{ playbook_dir }}/.."

@@ -19,13 +19,13 @@
   loop_control:
     loop_var: inc_item
   register: _itsm_inc_post
-  when: itsm_seed_incidents | bool and itsm_incidents | length > 0
+  when: itsm_ansible_role_incidents | bool and itsm_incidents | length > 0
 
-- name: Map incident seed_key to public_id
+- name: Map incident_key to public_id
   ansible.builtin.set_fact:
-    itsm_incident_by_seed_key: "{{ itsm_incident_by_seed_key | combine({ item.inc_item.seed_key: item.json.public_id }) }}"
+    itsm_incident_by_key: "{{ itsm_incident_by_key | combine({ item.inc_item.incident_key: item.json.public_id }) }}"
   loop: "{{ _itsm_inc_post.results }}"
   when:
-    - itsm_seed_incidents | bool
+    - itsm_ansible_role_incidents | bool
     - _itsm_inc_post is defined
     - _itsm_inc_post.results is defined

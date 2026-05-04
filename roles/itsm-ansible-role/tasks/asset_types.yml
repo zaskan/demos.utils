@@ -14,14 +14,14 @@
     headers:
       Accept: application/json
   register: _itsm_list_at
-  when: itsm_seed_asset_types | bool and itsm_asset_types | length > 0
+  when: itsm_ansible_role_asset_types | bool and itsm_asset_types | length > 0
 
 - name: Merge existing asset types into name-to-id map
   ansible.builtin.set_fact:
     itsm_asset_type_by_name: "{{ itsm_asset_type_by_name | combine({ item.name: item.id }) }}"
   loop: "{{ _itsm_list_at.json | default([]) }}"
   when:
-    - itsm_seed_asset_types | bool
+    - itsm_ansible_role_asset_types | bool
     - itsm_asset_types | length > 0
     - _itsm_list_at is defined
 
@@ -46,7 +46,7 @@
   loop: "{{ itsm_asset_types }}"
   register: _itsm_at_post
   when:
-    - itsm_seed_asset_types | bool
+    - itsm_ansible_role_asset_types | bool
     - itsm_asset_types | length > 0
     - item.name not in (itsm_asset_type_by_name | default({}))
 
@@ -55,7 +55,7 @@
     itsm_asset_type_by_name: "{{ itsm_asset_type_by_name | combine({ item.json.name: item.json.id }) }}"
   loop: "{{ _itsm_at_post.results | default([]) }}"
   when:
-    - itsm_seed_asset_types | bool
+    - itsm_ansible_role_asset_types | bool
     - _itsm_at_post is defined
     - _itsm_at_post.results is defined
     - item.json is defined

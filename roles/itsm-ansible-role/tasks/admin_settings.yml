@@ -16,7 +16,7 @@
       Accept: application/json
       Content-Type: application/json
   when:
-    - itsm_seed_admin_settings | bool
+    - itsm_ansible_role_admin_settings | bool
     - itsm_app_title is defined
     - itsm_app_title | length > 0
 
@@ -36,7 +36,7 @@
       Accept: application/json
       Content-Type: application/json
   when:
-    - itsm_seed_admin_settings | bool
+    - itsm_ansible_role_admin_settings | bool
     - itsm_branding is mapping
     - itsm_branding | length > 0
 
@@ -57,5 +57,5 @@
       Accept: application/json
       Content-Type: application/json
   when:
-    - itsm_seed_admin_settings | bool
+    - itsm_ansible_role_admin_settings | bool
     - itsm_webhook_url is not none

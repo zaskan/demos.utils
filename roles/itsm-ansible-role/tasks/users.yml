@@ -1,5 +1,5 @@
 ---
-# Idempotent: skip POST when username already exists (re-running seed after UNIQUE failure).
+# Idempotent: skip POST when username already exists (re-running the role after UNIQUE failure).
 - name: GET existing users (admin)
   ansible.builtin.uri:
     url: "{{ itsm_api_base_url }}/api/v1/users"
@@ -14,13 +14,13 @@
     headers:
       Accept: application/json
   register: _itsm_existing_users
-  when: itsm_seed_users | bool and itsm_users | length > 0
+  when: itsm_ansible_role_users | bool and itsm_users | length > 0
 
 - name: Record existing usernames for idempotency
   ansible.builtin.set_fact:
     itsm_existing_usernames: "{{ (_itsm_existing_users.json | default([])) | map(attribute='username') | list }}"
   when:
-    - itsm_seed_users | bool
+    - itsm_ansible_role_users | bool
     - itsm_users | length > 0
     - _itsm_existing_users is defined
 
@@ -44,6 +44,6 @@
       Content-Type: application/json
   loop: "{{ itsm_users }}"
   when:
-    - itsm_seed_users | bool
+    - itsm_ansible_role_users | bool
     - itsm_users | length > 0
     - item.username not in (itsm_existing_usernames | default([]))

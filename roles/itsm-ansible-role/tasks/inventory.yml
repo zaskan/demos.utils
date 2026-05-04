@@ -14,14 +14,14 @@
     headers:
       Accept: application/json
   register: _itsm_list_inv
-  when: itsm_seed_inventory | bool and itsm_inventory | length > 0
+  when: itsm_ansible_role_inventory | bool and itsm_inventory | length > 0
 
 - name: Merge existing inventory into hostname-to-id map
   ansible.builtin.set_fact:
     itsm_inventory_by_hostname: "{{ itsm_inventory_by_hostname | combine({ item.hostname: item.id }) }}"
   loop: "{{ _itsm_list_inv.json | default([]) }}"
   when:
-    - itsm_seed_inventory | bool
+    - itsm_ansible_role_inventory | bool
     - itsm_inventory | length > 0
     - _itsm_list_inv is defined
 
@@ -48,7 +48,7 @@
   loop: "{{ itsm_inventory }}"
   register: _itsm_inv_post
   when:
-    - itsm_seed_inventory | bool
+    - itsm_ansible_role_inventory | bool
     - itsm_inventory | length > 0
     - item.hostname not in (itsm_inventory_by_hostname | default({}))
 
@@ -57,7 +57,7 @@
     itsm_inventory_by_hostname: "{{ itsm_inventory_by_hostname | combine({ item.json.hostname: item.json.id }) }}"
   loop: "{{ _itsm_inv_post.results | default([]) }}"
   when:
-    - itsm_seed_inventory | bool
+    - itsm_ansible_role_inventory | bool
     - _itsm_inv_post is defined
     - _itsm_inv_post.results is defined
     - item.json is defined
