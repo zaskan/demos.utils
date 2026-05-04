@@ -1,0 +1,36 @@
+---
+- name: List channels
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/channels"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ chat_access_token }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ chat_http_timeout }}"
+  register: chat_channels_list_result
+
+- name: Build existing channel names
+  ansible.builtin.set_fact:
+    chat_existing_channel_names: "{{ chat_channels_list_result.json | map(attribute='name') | list }}"
+
+- name: Create channel when name not present
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/channels"
+    method: POST
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      allow_anonymous_webhook: false
+      anonymous_webhook_user_id: null
+    headers:
+      Authorization: "Bearer {{ chat_access_token }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [201]
+    timeout: "{{ chat_http_timeout }}"
+  loop: "{{ chat_channels }}"
+  when:
+    - chat_channels | length > 0
+    - item.name not in chat_existing_channel_names
+  loop_control:
+    label: "{{ item.name }}"

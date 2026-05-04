@@ -1,0 +1,19 @@
+---
+# Base URL of the Demo Chat API (no trailing slash).
+chat_api_base: "http://localhost:8000"
+
+chat_validate_certs: true
+chat_http_timeout: 30
+
+# Admin credentials (must exist — default seed admin or another admin).
+chat_admin_username: admin
+chat_admin_password: changeme
+
+# Lists (override in vars file).
+chat_users: []
+chat_channels: []
+chat_memberships: []
+chat_seed_messages: []
+
+# Optional: dict passed to PATCH /api/v1/admin/settings (e.g. branding).
+chat_instance_settings: {}

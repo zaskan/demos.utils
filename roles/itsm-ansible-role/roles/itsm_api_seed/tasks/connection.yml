@@ -1,0 +1,15 @@
+---
+- name: Verify ITSM API responds (GET /api/v1/settings/app)
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/settings/app"
+    method: GET
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    return_content: true
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+  when: itsm_seed_check_connection | bool

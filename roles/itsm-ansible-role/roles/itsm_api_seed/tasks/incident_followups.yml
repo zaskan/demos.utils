@@ -1,0 +1,9 @@
+---
+- name: Apply incident follow-ups (comments + close)
+  when: itsm_seed_followups | bool and itsm_incident_followups | length > 0
+  block:
+    - name: Process each follow-up definition
+      ansible.builtin.include_tasks: followup_one.yml
+      loop: "{{ itsm_incident_followups }}"
+      loop_control:
+        loop_var: fu

@@ -1,0 +1,74 @@
+---
+- name: Initialize author password for this seed message
+  ansible.builtin.set_fact:
+    seed_author_password: ''
+
+- name: Use explicit password from seed entry
+  ansible.builtin.set_fact:
+    seed_author_password: "{{ seed_msg.password }}"
+  when: seed_msg.password is defined
+
+- name: Look up password from chat_users
+  ansible.builtin.set_fact:
+    seed_author_password: "{{ (chat_users | selectattr('username', 'equalto', seed_msg.username) | list | first).password }}"
+  when:
+    - seed_author_password | length == 0
+    - (chat_users | selectattr('username', 'equalto', seed_msg.username) | list | length) > 0
+
+- name: Fall back to admin password when posting as admin user
+  ansible.builtin.set_fact:
+    seed_author_password: "{{ chat_admin_password }}"
+  when:
+    - seed_author_password | length == 0
+    - seed_msg.username == chat_admin_username
+
+- name: Require password for seed message author
+  ansible.builtin.assert:
+    that:
+      - seed_author_password | length > 0
+    fail_msg: >-
+      Cannot post as '{{ seed_msg.username }}': set password on the seed entry, add the user to chat_users, or post as admin (chat_admin_username).
+
+- name: Login as seed message author
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/auth/login"
+    method: POST
+    body_format: json
+    body:
+      username: "{{ seed_msg.username }}"
+      password: "{{ seed_author_password }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ chat_http_timeout }}"
+  register: chat_seed_login
+  no_log: true
+
+- name: List recent channel messages to check idempotency
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/channels/{{ seed_msg.channel | urlencode }}/messages?limit=200"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ chat_seed_login.json.access_token }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ chat_http_timeout }}"
+  register: chat_seed_existing_msgs
+
+- name: Post seed message when body not already present
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/channels/{{ seed_msg.channel | urlencode }}/messages"
+    method: POST
+    body_format: json
+    body:
+      body: "{{ seed_msg.body }}"
+    headers:
+      Authorization: "Bearer {{ chat_seed_login.json.access_token }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [201]
+    timeout: "{{ chat_http_timeout }}"
+  when: >-
+    seed_msg.body not in (
+      chat_seed_existing_msgs.json['items'] | default([])
+      | map(attribute='body')
+      | list
+    )

@@ -1,0 +1,63 @@
+---
+# Idempotent: GET existing types first; POST only names not already present; merge map for inventory.
+- name: GET existing asset types
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/asset-types"
+    method: GET
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    return_content: true
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+  register: _itsm_list_at
+  when: itsm_seed_asset_types | bool and itsm_asset_types | length > 0
+
+- name: Merge existing asset types into name-to-id map
+  ansible.builtin.set_fact:
+    itsm_asset_type_by_name: "{{ itsm_asset_type_by_name | combine({ item.name: item.id }) }}"
+  loop: "{{ _itsm_list_at.json | default([]) }}"
+  when:
+    - itsm_seed_asset_types | bool
+    - itsm_asset_types | length > 0
+    - _itsm_list_at is defined
+
+- name: POST asset types (only if name not already present)
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/asset-types"
+    method: POST
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      description: "{{ item.description | default('') }}"
+    status_code: [201]
+    return_content: true
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  loop: "{{ itsm_asset_types }}"
+  register: _itsm_at_post
+  when:
+    - itsm_seed_asset_types | bool
+    - itsm_asset_types | length > 0
+    - item.name not in (itsm_asset_type_by_name | default({}))
+
+- name: Merge newly created asset types into name map
+  ansible.builtin.set_fact:
+    itsm_asset_type_by_name: "{{ itsm_asset_type_by_name | combine({ item.json.name: item.json.id }) }}"
+  loop: "{{ _itsm_at_post.results | default([]) }}"
+  when:
+    - itsm_seed_asset_types | bool
+    - _itsm_at_post is defined
+    - _itsm_at_post.results is defined
+    - item.json is defined
+    - item.json.name is defined
+    - item.json.id is defined

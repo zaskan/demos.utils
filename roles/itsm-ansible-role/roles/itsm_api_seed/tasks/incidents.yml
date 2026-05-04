@@ -1,0 +1,31 @@
+---
+- name: POST incidents
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/incidents"
+    method: POST
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body: "{{ lookup('template', 'incident_body.json.j2') | from_json }}"
+    status_code: [201]
+    return_content: true
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  loop: "{{ itsm_incidents }}"
+  loop_control:
+    loop_var: inc_item
+  register: _itsm_inc_post
+  when: itsm_seed_incidents | bool and itsm_incidents | length > 0
+
+- name: Map incident seed_key to public_id
+  ansible.builtin.set_fact:
+    itsm_incident_by_seed_key: "{{ itsm_incident_by_seed_key | combine({ item.inc_item.seed_key: item.json.public_id }) }}"
+  loop: "{{ _itsm_inc_post.results }}"
+  when:
+    - itsm_seed_incidents | bool
+    - _itsm_inc_post is defined
+    - _itsm_inc_post.results is defined

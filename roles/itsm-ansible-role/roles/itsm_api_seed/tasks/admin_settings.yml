@@ -1,0 +1,61 @@
+---
+- name: PUT application title
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/settings/app"
+    method: PUT
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body:
+      app_title: "{{ itsm_app_title }}"
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  when:
+    - itsm_seed_admin_settings | bool
+    - itsm_app_title is defined
+    - itsm_app_title | length > 0
+
+- name: PATCH branding
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/settings/branding"
+    method: PATCH
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body: "{{ itsm_branding }}"
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  when:
+    - itsm_seed_admin_settings | bool
+    - itsm_branding is mapping
+    - itsm_branding | length > 0
+
+- name: PUT webhook URL
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/settings/webhook"
+    method: PUT
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body:
+      webhook_url: "{{ itsm_webhook_url }}"
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  when:
+    - itsm_seed_admin_settings | bool
+    - itsm_webhook_url is not none

@@ -1,0 +1,18 @@
+{% set b = {
+  'title': inc_item.title,
+  'description': inc_item.description | default(''),
+  'severity': inc_item.severity | default('medium')
+} %}
+{% if inc_item.created_at is defined and inc_item.created_at %}
+{% set b = b | combine({'created_at': inc_item.created_at}) %}
+{% endif %}
+{% set aid = none %}
+{% if inc_item.inventory_asset_id is defined and inc_item.inventory_asset_id is not none %}
+{% set aid = inc_item.inventory_asset_id %}
+{% elif inc_item.inventory_hostname is defined and inc_item.inventory_hostname in itsm_inventory_by_hostname %}
+{% set aid = itsm_inventory_by_hostname[inc_item.inventory_hostname] %}
+{% endif %}
+{% if aid is not none %}
+{% set b = b | combine({'inventory_asset_id': aid | int}) %}
+{% endif %}
+{{ b | to_json }}

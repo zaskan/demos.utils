@@ -1,0 +1,30 @@
+---
+- name: Fetch current admin instance settings
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/admin/settings"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ chat_access_token }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ chat_http_timeout }}"
+  register: chat_instance_get
+
+- name: Merge desired settings onto current state for comparison
+  ansible.builtin.set_fact:
+    chat_instance_effective: "{{ chat_instance_get.json | combine(chat_instance_settings, recursive=True) }}"
+
+- name: PATCH instance settings only when different from server
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/admin/settings"
+    method: PATCH
+    body_format: json
+    body: "{{ chat_instance_settings }}"
+    headers:
+      Authorization: "Bearer {{ chat_access_token }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ chat_http_timeout }}"
+  when: >-
+    chat_instance_effective | to_json(sort_keys=True)
+    != chat_instance_get.json | to_json(sort_keys=True)

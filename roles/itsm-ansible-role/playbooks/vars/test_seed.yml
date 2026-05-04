@@ -1,0 +1,112 @@
+---
+# Example vars — copy or override with -e / Vault for real passwords.
+# Idempotent fields: usernames, asset type names, KB titles (for close lookup),
+# hostnames, incident seed_keys (reuse maps existing API rows / skips duplicates).
+
+itsm_api_base_url: "https://itsm-app-itsm-app.apps.ocp.zaskan.es"
+itsm_api_user: admin
+itsm_api_password: admin
+
+# Admin settings (require admin Basic auth)
+itsm_app_title: "ITSM (Ansible seed)"
+itsm_branding:
+  preset: "navy"
+  # Alternatives (omit preset if setting colors):
+  # sidebar_background: "#1a233a"
+  # sidebar_text: "#e6eefc"
+itsm_webhook_url: ""
+# itsm_webhook_url: "https://hooks.example.com/itsm-outbound"  # example outbound URL
+
+itsm_users:
+  - username: ansible_demo_user
+    password: "ChangeMe-Demo-User-01"
+    role: user
+  - username: ansible_demo_ops
+    password: "ChangeMe-Demo-Ops-02"
+    role: user
+
+itsm_asset_types:
+  - name: Server
+    description: General-purpose server
+  - name: Network
+    description: Network gear
+  - name: Workstation
+    description: End-user laptop or desktop
+  - name: Storage
+    description: SAN, NAS, or object storage
+
+itsm_inventory:
+  - asset_type_name: Server
+    hostname: seed-host-01.example.com
+    ip_address: "10.0.0.50"
+    group_name: demo
+  - asset_type_name: Server
+    hostname: seed-db-01.example.com
+    ip_address: "10.0.0.51"
+    group_name: databases
+  - asset_type_name: Network
+    hostname: seed-sw-core-01.example.com
+    ip_address: "10.0.1.1"
+    group_name: core-network
+  - asset_type_name: Workstation
+    hostname: seed-ws-finance-042.example.com
+    ip_address: "10.0.10.42"
+    group_name: finance
+  - asset_type_name: Storage
+    hostname: seed-nas-backup.example.com
+    ip_address: "10.0.20.5"
+    group_name: backup
+
+itsm_kb_articles:
+  - title: "Restart print spooler"
+    description: "Open services.msc, restart Print Spooler service. Retry the print job."
+  - title: "Free disk space on Linux"
+    description: "Check `df -h`. Remove old logs under /var/log or rotate. Expand volume if on LVM."
+  - title: "Reset VPN client profile"
+    description: "Remove stale VPN profile, reboot, re-import organization profile from IT portal."
+  - title: "Wi-Fi guest portal timeout"
+    description: "Guest SSID sessions expire after 8h. Reconnect or use corporate VPN for long tasks."
+
+itsm_incidents:
+  - seed_key: seed_ticket_1
+    title: "Printer offline — lobby"
+    description: "Users cannot print to LP-01."
+    severity: medium
+    inventory_hostname: seed-host-01.example.com
+  - seed_key: seed_ticket_2
+    title: "VPN tunnel flapping — branch office"
+    description: "Site-to-site VPN drops every few minutes; VoIP quality poor."
+    severity: high
+  - seed_key: seed_ticket_3
+    title: "Disk space low on /var — seed-db-01"
+    description: "Monitoring alert: /var at 92% on database VM."
+    severity: high
+    inventory_hostname: seed-db-01.example.com
+  - seed_key: seed_ticket_4
+    title: "Guest Wi-Fi captive portal loops"
+    description: "Visitors accept terms but page reloads without granting access."
+    severity: low
+
+itsm_incident_followups:
+  - seed_key: seed_ticket_1
+    comments:
+      - body: "Checked queue — cleared stuck job."
+      - body: "Asked facilities to power-cycle LP-01 if it happens again."
+    close:
+      kb_article_title: "Restart print spooler"
+  - seed_key: seed_ticket_2
+    comments:
+      - body: "Escalated to network team — checking ISP handoff."
+      - body: "MTU adjusted on tunnel; monitoring overnight."
+    close:
+      kb_article_title: "Reset VPN client profile"
+  - seed_key: seed_ticket_3
+    comments:
+      - body: "Pruned rotated logs older than 30 days under /var/log."
+    close:
+      kb_article_title: "Free disk space on Linux"
+  - seed_key: seed_ticket_4
+    comments:
+      - body: "Confirmed portal certificate renewed this morning; clients may need to forget SSID once."
+    close:
+      kb_article_title: "Wi‑Fi guest portal timeout"

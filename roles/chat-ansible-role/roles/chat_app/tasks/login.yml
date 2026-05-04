@@ -1,0 +1,18 @@
+---
+- name: Authenticate admin and obtain JWT
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/auth/login"
+    method: POST
+    body_format: json
+    body:
+      username: "{{ chat_admin_username }}"
+      password: "{{ chat_admin_password }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ chat_http_timeout }}"
+  register: chat_login_result
+  no_log: true
+
+- name: Set admin access token fact
+  ansible.builtin.set_fact:
+    chat_access_token: "{{ chat_login_result.json.access_token }}"

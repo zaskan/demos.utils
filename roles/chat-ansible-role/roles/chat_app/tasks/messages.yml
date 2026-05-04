@@ -1,0 +1,6 @@
+---
+- name: Process each seed message
+  ansible.builtin.include_tasks: seed_one_message.yml
+  loop: "{{ chat_seed_messages }}"
+  loop_control:
+    loop_var: seed_msg

@@ -1,0 +1,43 @@
+---
+# Example vars — adjust chat_api_base and credentials for your environment.
+
+chat_api_base: "https://demo-chat-demo-chat.apps.ocp.zaskan.es"
+chat_validate_certs: true
+
+chat_admin_username: admin
+chat_admin_password: changeme
+
+chat_users:
+  - username: alice
+    password: alice-secret
+    is_admin: false
+  - username: bob
+    password: bob-secret
+    is_admin: false
+
+chat_channels:
+  - name: general
+  - name: ops
+    allow_anonymous_webhook: false
+  # After memberships exist, webhook user must be a channel member:
+  # - name: inbound
+  #   allow_anonymous_webhook: true
+  #   anonymous_webhook_username: alice
+
+chat_memberships:
+  - channel: general
+    username: alice
+  - channel: general
+    username: bob
+  - channel: ops
+    username: alice
+
+chat_seed_messages:
+  - channel: general
+    username: alice
+    body: "Hello from Ansible seed — idempotent body."
+  # Second run skips POST if this exact body already exists in the last 200 messages.
+
+chat_instance_settings:
+  branding:
+    app_title: "Demo Chat (Ansible)"

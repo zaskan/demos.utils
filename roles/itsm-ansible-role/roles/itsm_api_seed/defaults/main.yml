@@ -1,0 +1,37 @@
+---
+# Connection (override in playbook, vars file, or -e)
+itsm_api_base_url: "http://127.0.0.1:8000"
+itsm_api_user: admin
+itsm_api_password: changeme
+itsm_validate_certs: true
+itsm_http_timeout: 30
+
+# Section toggles (non-idempotent seed)
+itsm_seed_check_connection: true
+itsm_seed_admin_settings: true
+itsm_seed_users: true
+itsm_seed_asset_types: true
+itsm_seed_inventory: true
+itsm_seed_kb: true
+itsm_seed_incidents: true
+itsm_seed_followups: true
+
+# Admin (omit / leave empty to skip individual steps — handled in tasks)
+itsm_app_title: ""
+itsm_branding: {}
+itsm_webhook_url: null  # set to "" or URL to PUT webhook
+
+itsm_users: []
+
+itsm_asset_types: []
+
+# asset_type_name must match a type created above (or pre-existing with same name — map uses API response names)
+itsm_inventory: []
+
+itsm_kb_articles: []
+
+# Each needs seed_key; optional inventory_hostname or inventory_asset_id; optional created_at (ISO string)
+itsm_incidents: []
+
+# Comments / close by seed_key from itsm_incidents; close.kb_article_title resolved after KB seed
+itsm_incident_followups: []

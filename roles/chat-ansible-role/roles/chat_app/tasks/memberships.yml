@@ -1,0 +1,25 @@
+---
+- name: Assert membership user exists in API user map
+  ansible.builtin.assert:
+    that:
+      - item.username in chat_user_id_by_name
+    fail_msg: "Unknown username '{{ item.username }}' for membership — create user in chat_users first."
+  loop: "{{ chat_memberships }}"
+  loop_control:
+    label: "{{ item.channel }} <- {{ item.username }}"
+
+- name: Add user to channel (idempotent on server)
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/channels/{{ item.channel | urlencode }}/members"
+    method: POST
+    body_format: json
+    body:
+      user_id: "{{ chat_user_id_by_name[item.username] }}"
+    headers:
+      Authorization: "Bearer {{ chat_access_token }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [204]
+    timeout: "{{ chat_http_timeout }}"
+  loop: "{{ chat_memberships }}"
+  loop_control:
+    label: "{{ item.channel }} <- {{ item.username }}"

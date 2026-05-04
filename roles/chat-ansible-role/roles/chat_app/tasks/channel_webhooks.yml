@@ -1,0 +1,32 @@
+---
+# Apply webhook-related fields after memberships exist (anonymous_webhook_user must be a member).
+# Do not send anonymous_webhook_user_id as a quoted Jinja string — None becomes "" and the API returns 422.
+
+- name: Patch channel webhook options
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/channels/{{ item.name | urlencode }}"
+    method: PATCH
+    body_format: json
+    body: "{{ {'allow_anonymous_webhook': item.allow_anonymous_webhook | default(false) | bool } | combine(_webhook_user_fragment) }}"
+    headers:
+      Authorization: "Bearer {{ chat_access_token }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ chat_http_timeout }}"
+  vars:
+    _uname: "{{ item.anonymous_webhook_username | default('', true) }}"
+    _webhook_user_fragment: >-
+      {{
+        {'anonymous_webhook_user_id': chat_user_id_by_name[_uname]}
+        if (
+          item.allow_anonymous_webhook | default(false) | bool
+          and _uname | length > 0
+          and _uname in chat_user_id_by_name
+        )
+        else {}
+      }}
+  loop: "{{ chat_channels }}"
+  when:
+    - item.allow_anonymous_webhook is defined or item.anonymous_webhook_username is defined
+  loop_control:
+    label: "{{ item.name }}"

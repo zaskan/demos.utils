@@ -1,0 +1,31 @@
+---
+- name: Init lookup maps for seed role
+  ansible.builtin.set_fact:
+    itsm_asset_type_by_name: {}
+    itsm_inventory_by_hostname: {}
+    itsm_kb_by_title: {}
+    itsm_incident_by_seed_key: {}
+
+- name: Connection smoke check
+  ansible.builtin.import_tasks: connection.yml
+
+- name: Admin settings (app title, branding, webhook)
+  ansible.builtin.import_tasks: admin_settings.yml
+
+- name: Create users
+  ansible.builtin.import_tasks: users.yml
+
+- name: Create asset types
+  ansible.builtin.import_tasks: asset_types.yml
+
+- name: Create inventory
+  ansible.builtin.import_tasks: inventory.yml
+
+- name: Create KB articles
+  ansible.builtin.import_tasks: kb.yml
+
+- name: Create incidents
+  ansible.builtin.import_tasks: incidents.yml
+
+- name: Incident follow-ups (comments and close)
+  ansible.builtin.import_tasks: incident_followups.yml

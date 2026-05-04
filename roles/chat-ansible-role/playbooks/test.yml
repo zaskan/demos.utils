@@ -1,0 +1,8 @@
+---
+# Run from chat-ansible-role/: ansible-playbook playbooks/test.yml -i inventory/hosts -e @examples/test-vars.yml
+- name: Test chat_app role — provision Demo Chat via API
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  roles:
+    - role: chat_app

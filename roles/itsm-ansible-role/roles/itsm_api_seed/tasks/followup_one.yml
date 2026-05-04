@@ -1,0 +1,80 @@
+---
+- name: Reset close KB fact for this follow-up
+  ansible.builtin.set_fact:
+    _close_kb_id: null
+
+- name: POST comment on incident (follow-up)
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/incidents/{{ itsm_incident_by_seed_key[fu.seed_key] }}/comments"
+    method: POST
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body:
+      body: "{{ comment.body }}"
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  loop: "{{ fu.comments | default([]) }}"
+  loop_control:
+    loop_var: comment
+
+- name: Resolve KB article id for close (explicit id)
+  ansible.builtin.set_fact:
+    _close_kb_id: "{{ fu.close.kb_article_id | int }}"
+  when:
+    - fu.close is defined
+    - fu.close.kb_article_id is defined
+    - fu.close.kb_article_id is not none
+
+- name: Resolve KB article id for close (by title)
+  ansible.builtin.set_fact:
+    _close_kb_id: "{{ itsm_kb_by_title[fu.close.kb_article_title] }}"
+  when:
+    - fu.close is defined
+    - fu.close.kb_article_title is defined
+    - fu.close.kb_article_title in itsm_kb_by_title
+    - _close_kb_id is none
+
+- name: POST close incident with KB resolution
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/incidents/{{ itsm_incident_by_seed_key[fu.seed_key] }}/close"
+    method: POST
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body:
+      kb_article_id: "{{ _close_kb_id | int }}"
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  when:
+    - fu.close is defined
+    - _close_kb_id is not none
+
+- name: POST close incident without KB resolution
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/incidents/{{ itsm_incident_by_seed_key[fu.seed_key] }}/close"
+    method: POST
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body: {}
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  when:
+    - fu.close is defined
+    - _close_kb_id is none

@@ -1,0 +1,59 @@
+---
+- name: List users (admin)
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/users"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ chat_access_token }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ chat_http_timeout }}"
+  register: chat_users_list_initial
+
+- name: Build set of existing usernames before create
+  ansible.builtin.set_fact:
+    chat_existing_usernames: "{{ chat_users_list_initial.json | map(attribute='username') | list }}"
+
+- name: Create user when username not present
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/users"
+    method: POST
+    body_format: json
+    body:
+      username: "{{ item.username }}"
+      password: "{{ item.password }}"
+      is_admin: "{{ item.is_admin | default(false) | bool }}"
+    headers:
+      Authorization: "Bearer {{ chat_access_token }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [201]
+    timeout: "{{ chat_http_timeout }}"
+  loop: "{{ chat_users }}"
+  when:
+    - chat_users | length > 0
+    - item.username not in chat_existing_usernames
+  no_log: true
+  loop_control:
+    label: "{{ item.username }}"
+
+- name: Initialize username id map
+  ansible.builtin.set_fact:
+    chat_user_id_by_name: {}
+
+- name: Refresh user list after creates
+  ansible.builtin.uri:
+    url: "{{ chat_api_base_normalized }}/api/v1/users"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ chat_access_token }}"
+    validate_certs: "{{ chat_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ chat_http_timeout }}"
+  register: chat_users_list_final
+
+- name: Build username to user id map
+  ansible.builtin.set_fact:
+    chat_user_id_by_name: "{{ chat_user_id_by_name | default({}) | combine({ item.username: item.id | string }) }}"
+  loop: "{{ chat_users_list_final.json }}"
+  loop_control:
+    label: "{{ item.username }}"
