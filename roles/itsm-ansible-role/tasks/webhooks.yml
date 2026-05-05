@@ -1,0 +1,86 @@
+---
+# Sync outbound webhooks with itsm-app /api/v1/settings/webhooks (GET/POST/PATCH/DELETE).
+# Requires facts: itsm_webhooks_effective populated by include context, or set below.
+
+- name: Resolve desired webhook list (itsm_webhooks or legacy itsm_webhook_url)
+  ansible.builtin.set_fact:
+    itsm_webhooks_effective: "{{ _itsm_eff_raw | unique(attribute='url') }}"
+  vars:
+    _list: "{{ itsm_webhooks | default([], true) }}"
+    _legacy_trim: "{{ (itsm_webhook_url | default('', true)) | string | trim }}"
+    _legacy_single: >-
+      {{
+        [{'url': _legacy_trim, 'label': '', 'enabled': true}]
+        if (_legacy_trim | length > 0) else []
+      }}
+    _itsm_eff_raw: "{{ _list if (_list | length > 0) else _legacy_single }}"
+
+- name: Desired webhook URL list for optional purge
+  ansible.builtin.set_fact:
+    itsm_desired_urls_list: "{{ itsm_webhooks_effective | map(attribute='url') | map('trim') | list }}"
+
+- name: GET current outbound webhooks
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/settings/webhooks"
+    method: GET
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+  register: _itsm_webhooks_get
+
+- name: Index current webhooks by normalized URL
+  ansible.builtin.set_fact:
+    itsm_hooks_by_url: "{{ itsm_hooks_by_url | default({}) | combine({ (item.url | trim): item }) }}"
+  loop: "{{ _itsm_webhooks_get.json | default([]) }}"
+
+- name: POST webhook when URL is not configured yet
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/settings/webhooks"
+    method: POST
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body:
+      url: "{{ wh_item.url | trim }}"
+      label: "{{ wh_item.label | default('', true) }}"
+      enabled: "{{ wh_item.enabled | default(true) | bool }}"
+    status_code: [201]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  loop: "{{ itsm_webhooks_effective }}"
+  loop_control:
+    loop_var: wh_item
+  when: (wh_item.url | trim) not in (itsm_hooks_by_url | default({}))
+
+- name: PATCH existing webhooks when label or enabled differs from desired
+  ansible.builtin.include_tasks: webhooks_patch_one.yml
+  loop: "{{ itsm_webhooks_effective }}"
+  loop_control:
+    loop_var: wu_item
+  when: (wu_item.url | trim) in (itsm_hooks_by_url | default({}) | list)
+
+- name: Remove webhooks not present in Ansible desired list
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/settings/webhooks/{{ item.id }}"
+    method: DELETE
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    status_code: [204]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+  loop: "{{ _itsm_webhooks_get.json | default([]) }}"
+  when:
+    - itsm_webhooks_remove_unlisted | default(false) | bool
+    - (item.url | trim) not in itsm_desired_urls_list

@@ -14,8 +14,19 @@ itsm_branding:
   # Alternatives (omit preset if setting colors):
   # sidebar_background: "#1a233a"
   # sidebar_text: "#e6eefc"
-itsm_webhook_url: ""
-# itsm_webhook_url: "https://hooks.example.com/itsm-outbound"  # example outbound URL
+# Outbound hooks: prefer itsm_webhooks (multi-target). Legacy single URL used only when list is empty.
+itsm_webhooks: []
+# - url: "https://hooks.example.com/itsm-outbound-alpha"
+#   label: "Alpha"
+#   enabled: true
+# - url: "https://hooks.example.com/itsm-outbound-beta"
+#   label: "Beta"
+#
+# Legacy (non-empty string; ignored if itsm_webhooks is non-empty):
+# itsm_webhook_url: "https://hooks.example.com/itsm-single"
+#
+# Uncomment to prune server URLs not declared above:
+# itsm_webhooks_remove_unlisted: true
 
 itsm_users:
   - username: ansible_demo_user

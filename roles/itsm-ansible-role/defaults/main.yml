@@ -19,7 +19,12 @@ itsm_ansible_role_followups: true
 # Admin (omit / leave empty to skip individual steps — handled in tasks)
 itsm_app_title: ""
 itsm_branding: {}
-itsm_webhook_url: null  # set to "" or URL to PUT webhook
+# Legacy single URL — used only when itsm_webhooks is empty; syncs via POST/PATCH multi-webhook API
+itsm_webhook_url: null
+# Prefer: list of { url, label?, enabled? }; merged with legacy above (itsm_webhooks wins when non-empty)
+itsm_webhooks: []
+# If true, DELETE outbound webhooks on the server whose URL is not in the Ansible desired list (can remove all hooks when desired list is empty)
+itsm_webhooks_remove_unlisted: false
 
 itsm_users: []
 

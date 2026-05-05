@@ -1,0 +1,31 @@
+---
+# PATCH one outbound webhook after POST pass (expects wu_item, itsm_hooks_by_url facts).
+- name: PATCH webhook when label or enabled differs from desired
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/settings/webhooks/{{ _ex.id }}"
+    method: PATCH
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body: "{{ wh_patch }}"
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  vars:
+    wu_url: "{{ wu_item.url | trim }}"
+    _ex: "{{ itsm_hooks_by_url[wu_url] }}"
+    _want_label: "{{ wu_item.label | default('', true) }}"
+    _want_en: "{{ wu_item.enabled | default(true) | bool }}"
+    _have_label: "{{ _ex.label | default('', true) }}"
+    _have_en: "{{ _ex.enabled | default(true) | bool }}"
+    wh_patch: >-
+      {{ dict()
+         | combine({'label': _want_label}
+           if ((_have_label | string) != (_want_label | string)) else {})
+         | combine({'enabled': _want_en}
+           if ((_have_en | bool) != (_want_en | bool)) else {}) }}
+  when: (wh_patch | length) > 0

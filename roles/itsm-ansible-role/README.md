@@ -45,7 +45,7 @@ Use **Ansible Vault** for `itsm_api_password` and user passwords in production.
 | `itsm_validate_certs` | TLS verify (default `true`) |
 | `itsm_http_timeout` | Seconds for HTTP calls |
 | `itsm_ansible_role_check_connection` | Run GET smoke check (default `true`) |
-| `itsm_ansible_role_admin_settings` | Apply app title, branding, webhook (default `true`) |
+| `itsm_ansible_role_admin_settings` | Apply app title, branding, outbound webhooks (default `true`) |
 | `itsm_ansible_role_users` | Create users from list (default `true`) |
 | `itsm_ansible_role_asset_types` | POST asset types (default `true`) |
 | `itsm_ansible_role_inventory` | POST inventory (default `true`) |
@@ -54,7 +54,9 @@ Use **Ansible Vault** for `itsm_api_password` and user passwords in production.
 | `itsm_ansible_role_followups` | Comments + close (default `true`) |
 | `itsm_app_title` | If set, PUT `/api/v1/settings/app` |
 | `itsm_branding` | Dict for PATCH `/api/v1/settings/branding` (only keys present are sent) |
-| `itsm_webhook_url` | If defined, PUT `/api/v1/settings/webhook` (can be `""`) |
+| `itsm_webhooks` | List of `{ url, label?, enabled? }` — idempotent sync against `GET/POST/PATCH /api/v1/settings/webhooks` (after `unique` by `url`, first occurrence wins); missing URLs receive `POST`; existing URLs get `PATCH` when `label` or `enabled` differs |
+| `itsm_webhook_url` | **Legacy**: when `itsm_webhooks` is empty and this is a non-empty string (after trim), treated as one enabled webhook — same behaviour as formerly `PUT …/settings/webhook` against older itsm-app |
+| `itsm_webhooks_remove_unlisted` | If `true`, `DELETE` any server webhook whose URL is not in the Ansible desired list (dangerous when combined with empty desired — can remove every outbound hook) |
 | `itsm_users` | List of `{ username, password, role }` — **admin only**; users whose username already exists are skipped (no password update) |
 | `itsm_asset_types` | List of `{ name, description }`; names already in the API are skipped (map filled from `GET /asset-types` first) |
 | `itsm_inventory` | List of `{ asset_type_name, hostname, ip_address, group_name }`; **hostname** dedupes — existing hostnames from `GET /inventory` are not created again |
@@ -65,7 +67,7 @@ Use **Ansible Vault** for `itsm_api_password` and user passwords in production.
 ### Ordering
 
 1. Connection check
-2. Admin settings (app, branding, webhook)
+2. Admin settings (app, branding, outbound webhooks)
 3. Users
 4. Asset types → builds name→id map
 5. Inventory → builds hostname→id map
