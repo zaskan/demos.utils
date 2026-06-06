@@ -1,7 +1,7 @@
 ---
 # Example vars — copy or override with -e / Vault for real passwords.
-# Idempotent fields: usernames, asset type names, KB titles (for close lookup),
-# hostnames, incident_keys (reuse maps existing API rows / skips duplicates).
+# Idempotent fields: usernames, asset type names, asset names, template names,
+# custom field keys, KB titles (for close / task template lookup).
 
 itsm_api_base_url: "https://itsm-app-itsm-app.apps.ocp.zaskan.es"
 itsm_api_user: admin
@@ -39,6 +39,14 @@ itsm_users:
 itsm_asset_types:
   - name: Server
     description: General-purpose server
+    fields:
+      - field_key: ip_address
+        label: IP address
+        field_type: text
+      - field_key: environment
+        label: Environment
+        field_type: select
+        options: ["dev", "staging", "prod"]
   - name: Network
     description: Network gear
   - name: Workstation
@@ -46,27 +54,40 @@ itsm_asset_types:
   - name: Storage
     description: SAN, NAS, or object storage
 
-itsm_inventory:
+itsm_assets:
   - asset_type_name: Server
-    hostname: demo-host-01.example.com
-    ip_address: "10.0.0.50"
-    group_name: demo
+    name: demo-host-01.example.com
+    description: "Demo app server — IP 10.0.0.50, group demo"
+    external_inventory: true
+    custom_fields:
+      ip_address: "10.0.0.50"
+      environment: dev
+    assigned_username: ansible_demo_ops
   - asset_type_name: Server
-    hostname: demo-db-01.example.com
-    ip_address: "10.0.0.51"
-    group_name: databases
+    name: demo-db-01.example.com
+    description: "Database VM — IP 10.0.0.51, group databases"
+    external_inventory: true
+    custom_fields:
+      ip_address: "10.0.0.51"
+      environment: prod
   - asset_type_name: Network
-    hostname: demo-sw-core-01.example.com
-    ip_address: "10.0.1.1"
-    group_name: core-network
+    name: demo-sw-core-01.example.com
+    description: "Core switch — IP 10.0.1.1"
+    external_inventory: true
   - asset_type_name: Workstation
-    hostname: demo-ws-finance-042.example.com
-    ip_address: "10.0.10.42"
-    group_name: finance
+    name: demo-ws-finance-042.example.com
+    description: "Finance workstation — IP 10.0.10.42"
   - asset_type_name: Storage
-    hostname: demo-nas-backup.example.com
-    ip_address: "10.0.20.5"
-    group_name: backup
+    name: demo-nas-backup.example.com
+    description: "Backup NAS — child of demo-host-01"
+    parent_asset_name: demo-host-01.example.com
+
+# Legacy inventory format (used only when itsm_assets is empty):
+# itsm_inventory:
+#   - asset_type_name: Server
+#     hostname: demo-host-01.example.com
+#     ip_address: "10.0.0.50"
+#     group_name: demo
 
 itsm_kb_articles:
   - title: "Restart print spooler"
@@ -77,13 +98,21 @@ itsm_kb_articles:
     description: "Remove stale VPN profile, reboot, re-import organization profile from IT portal."
   - title: "Wi-Fi guest portal timeout"
     description: "Guest SSID sessions expire after 8h. Reconnect or use corporate VPN for long tasks."
+  - title: "Provision Linux VM on hypervisor"
+    description: "Select datastore, apply CPU/RAM/disk template, attach network, register DNS."
+  - title: "Install Python and Docker packages"
+    description: "Use automation to install python3 and docker; enable and start docker."
+  - title: "Deploy Sales-App v2.0"
+    description: "Pull container image, apply config map, run health check on /healthz."
+  - title: "Smoke tests and monitoring onboarding"
+    description: "Run connectivity ping, app login test, verify metrics dashboard."
 
 itsm_incidents:
   - incident_key: demo_ticket_1
     title: "Printer offline — lobby"
     description: "Users cannot print to LP-01."
     severity: medium
-    inventory_hostname: demo-host-01.example.com
+    asset_name: demo-host-01.example.com
   - incident_key: demo_ticket_2
     title: "VPN tunnel flapping — branch office"
     description: "Site-to-site VPN drops every few minutes; VoIP quality poor."
@@ -92,11 +121,13 @@ itsm_incidents:
     title: "Disk space low on /var — demo-db-01"
     description: "Monitoring alert: /var at 92% on database VM."
     severity: high
-    inventory_hostname: demo-db-01.example.com
+    asset_name: demo-db-01.example.com
   - incident_key: demo_ticket_4
     title: "Guest Wi-Fi captive portal loops"
     description: "Visitors accept terms but page reloads without granting access."
     severity: low
+    # Legacy alias (same as asset_name when hostname matches an asset name):
+    # inventory_hostname: demo-ws-finance-042.example.com
 
 itsm_incident_followups:
   - incident_key: demo_ticket_1
@@ -121,3 +152,91 @@ itsm_incident_followups:
       - body: "Confirmed portal certificate renewed this morning; clients may need to forget SSID once."
     close:
       kb_article_title: "Wi‑Fi guest portal timeout"
+
+# --- Service request / change workflow (Linux VM catalog) ---
+
+itsm_task_templates:
+  - name: "Linux VM — Provision"
+    title: "Provision Linux VM on hypervisor"
+    description: "Select datastore, apply CPU/RAM/disk template, attach network, register DNS."
+    assigned_username: ansible_demo_ops
+    kb_article_title: "Provision Linux VM on hypervisor"
+  - name: "Linux VM — Packages"
+    title: "Install Python and Docker packages"
+    description: "Use automation to install python3 and docker; enable and start docker."
+    kb_article_title: "Install Python and Docker packages"
+  - name: "Linux VM — Deploy app"
+    title: "Deploy Sales-App v2.0"
+    description: "Pull container image, apply config map, run health check on /healthz."
+    kb_article_title: "Deploy Sales-App v2.0"
+  - name: "Linux VM — Smoke test"
+    title: "Smoke tests and monitoring onboarding"
+    description: "Run connectivity ping, app login test, verify metrics dashboard."
+    kb_article_title: "Smoke tests and monitoring onboarding"
+
+itsm_change_templates:
+  - name: "Linux VM — Standard Change"
+    description: "Standard Linux VM with packages and optional application deployment."
+    change_type: standard
+    task_template_names:
+      - "Linux VM — Provision"
+      - "Linux VM — Packages"
+      - "Linux VM — Deploy app"
+      - "Linux VM — Smoke test"
+
+itsm_request_templates:
+  - name: "New Linux Virtual Machine"
+    description: "Standard Linux VM with packages and optional application deployment."
+    change_template_name: "Linux VM — Standard Change"
+    require_standard_change: true
+    fields:
+      - field_key: vcpu
+        label: vCPU
+        field_type: number
+      - field_key: ram_gb
+        label: RAM (GB)
+        field_type: number
+      - field_key: storage_gb
+        label: Storage (GB)
+        field_type: number
+      - field_key: hostname
+        label: Hostname
+        field_type: text
+      - field_key: ip
+        label: IP address
+        field_type: text
+
+itsm_service_requests:
+  - request_key: linux_vm_demo
+    name: "Dev sandbox VM (Ansible demo)"
+    description: "Linux VM for sales-app feature branch testing."
+    request_template_name: "New Linux Virtual Machine"
+    specifications:
+      vcpu: 2
+      ram_gb: 4
+      storage_gb: 50
+      hostname: srv-sales-01
+      ip: "10.0.1.50"
+    submit: true
+  - request_key: contractor_laptop
+    name: "Contractor laptop (draft only)"
+    description: "MacBook Pro for 3-month engagement — left as draft."
+    submit: false
+
+itsm_changes:
+  - change_key: standalone_linux_vm
+    change_template_name: "Linux VM — Standard Change"
+
+itsm_change_task_progress:
+  - request_key: linux_vm_demo
+    mode: complete_all
+  - change_key: standalone_linux_vm
+    mode: half
+
+# Minimal bootstrap (skip workflow sections):
+# itsm_ansible_role_task_templates: false
+# itsm_ansible_role_change_templates: false
+# itsm_ansible_role_request_templates: false
+# itsm_ansible_role_service_requests: false
+# itsm_ansible_role_changes: false
+# itsm_ansible_role_change_tasks: false

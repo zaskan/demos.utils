@@ -1,5 +1,5 @@
 ---
-# Idempotent: GET existing types first; POST only names not already present; merge map for inventory.
+# Idempotent: GET existing types first; POST only names not already present; merge map for assets.
 - name: GET existing asset types
   ansible.builtin.uri:
     url: "{{ itsm_api_base_url }}/api/v1/asset-types"
@@ -61,3 +61,17 @@
     - item.json is defined
     - item.json.name is defined
     - item.json.id is defined
+
+- name: Ensure custom fields on asset types
+  ansible.builtin.include_tasks: custom_fields_ensure.yml
+  vars:
+    cf_fields_url: "{{ itsm_api_base_url }}/api/v1/asset-types/{{ itsm_asset_type_by_name[at_item.name] }}/fields"
+    cf_fields: "{{ at_item.fields }}"
+  loop: "{{ itsm_asset_types }}"
+  loop_control:
+    loop_var: at_item
+  when:
+    - itsm_ansible_role_asset_types | bool
+    - at_item.fields is defined
+    - at_item.fields | length > 0
+    - at_item.name in (itsm_asset_type_by_name | default({}))

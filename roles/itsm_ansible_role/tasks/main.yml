@@ -1,10 +1,22 @@
 ---
 - name: Init lookup maps for ITSM Ansible role
   ansible.builtin.set_fact:
+    itsm_user_by_username: {}
     itsm_asset_type_by_name: {}
+    itsm_asset_by_name: {}
     itsm_inventory_by_hostname: {}
     itsm_kb_by_title: {}
+    itsm_task_template_by_name: {}
+    itsm_change_template_by_name: {}
+    itsm_request_template_by_name: {}
     itsm_incident_by_key: {}
+    itsm_request_by_key: {}
+    itsm_change_by_key: {}
+    itsm_changes_from_request: {}
+
+- name: Normalize legacy itsm_inventory into effective assets list
+  ansible.builtin.set_fact:
+    itsm_assets_effective: "{{ itsm_assets if (itsm_assets | default([]) | length) > 0 else (itsm_inventory | default([])) }}"
 
 - name: Connection smoke check
   ansible.builtin.import_tasks: connection.yml
@@ -18,8 +30,12 @@
 - name: Create asset types
   ansible.builtin.import_tasks: asset_types.yml
 
-- name: Create inventory
-  ansible.builtin.import_tasks: inventory.yml
+- name: Create assets
+  ansible.builtin.import_tasks: assets.yml
+
+- name: Sync legacy inventory hostname map from assets
+  ansible.builtin.set_fact:
+    itsm_inventory_by_hostname: "{{ itsm_asset_by_name }}"
 
 - name: Create KB articles
   ansible.builtin.import_tasks: kb.yml
@@ -29,3 +45,21 @@
 
 - name: Incident follow-ups (comments and close)
   ansible.builtin.import_tasks: incident_followups.yml
+
+- name: Create task templates
+  ansible.builtin.import_tasks: task_templates.yml
+
+- name: Create change templates
+  ansible.builtin.import_tasks: change_templates.yml
+
+- name: Create request templates
+  ansible.builtin.import_tasks: request_templates.yml
+
+- name: Create and submit service requests
+  ansible.builtin.import_tasks: service_requests.yml
+
+- name: Create standalone changes
+  ansible.builtin.import_tasks: changes.yml
+
+- name: Progress change tasks (CTASK start/complete)
+  ansible.builtin.import_tasks: change_tasks.yml

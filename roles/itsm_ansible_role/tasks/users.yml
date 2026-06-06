@@ -14,14 +14,15 @@
     headers:
       Accept: application/json
   register: _itsm_existing_users
-  when: itsm_ansible_role_users | bool and itsm_users | length > 0
+  when: itsm_ansible_role_users | bool
 
-- name: Record existing usernames for idempotency
+- name: Build username-to-id map from existing users
   ansible.builtin.set_fact:
+    itsm_user_by_username: "{{ itsm_user_by_username | combine({ item.username: item.id }) }}"
     itsm_existing_usernames: "{{ (_itsm_existing_users.json | default([])) | map(attribute='username') | list }}"
+  loop: "{{ _itsm_existing_users.json | default([]) }}"
   when:
     - itsm_ansible_role_users | bool
-    - itsm_users | length > 0
     - _itsm_existing_users is defined
 
 - name: POST users (admin)
@@ -38,12 +39,26 @@
       password: "{{ item.password }}"
       role: "{{ item.role | default('user') }}"
     status_code: [201]
+    return_content: true
     timeout: "{{ itsm_http_timeout }}"
     headers:
       Accept: application/json
       Content-Type: application/json
   loop: "{{ itsm_users }}"
+  register: _itsm_user_post
   when:
     - itsm_ansible_role_users | bool
     - itsm_users | length > 0
     - item.username not in (itsm_existing_usernames | default([]))
+
+- name: Merge newly created users into username map
+  ansible.builtin.set_fact:
+    itsm_user_by_username: "{{ itsm_user_by_username | combine({ item.json.username: item.json.id }) }}"
+  loop: "{{ _itsm_user_post.results | default([]) }}"
+  when:
+    - itsm_ansible_role_users | bool
+    - _itsm_user_post is defined
+    - _itsm_user_post.results is defined
+    - item.json is defined
+    - item.json.username is defined
+    - item.json.id is defined

@@ -1,0 +1,77 @@
+---
+# Idempotent: GET existing request templates; POST only names not already present.
+- name: GET existing request templates
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/request-templates"
+    method: GET
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    return_content: true
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+  register: _itsm_list_rt
+  when: itsm_ansible_role_request_templates | bool and itsm_request_templates | length > 0
+
+- name: Merge existing request templates into name-to-id map
+  ansible.builtin.set_fact:
+    itsm_request_template_by_name: "{{ itsm_request_template_by_name | combine({ item.name: item.id }) }}"
+  loop: "{{ _itsm_list_rt.json | default([]) }}"
+  when:
+    - itsm_ansible_role_request_templates | bool
+    - itsm_request_templates | length > 0
+    - _itsm_list_rt is defined
+
+- name: POST request templates (only new names)
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/request-templates"
+    method: POST
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body: "{{ lookup('template', 'request_template_body.json.j2') | from_json }}"
+    status_code: [201]
+    return_content: true
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  loop: "{{ itsm_request_templates }}"
+  loop_control:
+    loop_var: rt_item
+  register: _itsm_rt_post
+  when:
+    - itsm_ansible_role_request_templates | bool
+    - itsm_request_templates | length > 0
+    - rt_item.name not in (itsm_request_template_by_name | default({}))
+
+- name: Merge newly created request templates into name map
+  ansible.builtin.set_fact:
+    itsm_request_template_by_name: "{{ itsm_request_template_by_name | combine({ item.json.name: item.json.id }) }}"
+  loop: "{{ _itsm_rt_post.results | default([]) }}"
+  when:
+    - itsm_ansible_role_request_templates | bool
+    - _itsm_rt_post is defined
+    - _itsm_rt_post.results is defined
+    - item.json is defined
+    - item.json.name is defined
+    - item.json.id is defined
+
+- name: Ensure custom fields on request templates
+  ansible.builtin.include_tasks: custom_fields_ensure.yml
+  vars:
+    cf_fields_url: "{{ itsm_api_base_url }}/api/v1/request-templates/{{ itsm_request_template_by_name[rt_item.name] }}/fields"
+    cf_fields: "{{ rt_item.fields }}"
+  loop: "{{ itsm_request_templates }}"
+  loop_control:
+    loop_var: rt_item
+  when:
+    - itsm_ansible_role_request_templates | bool
+    - rt_item.fields is defined
+    - rt_item.fields | length > 0
+    - rt_item.name in (itsm_request_template_by_name | default({}))

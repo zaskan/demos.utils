@@ -9,7 +9,13 @@
 {% set aid = none %}
 {% if inc_item.inventory_asset_id is defined and inc_item.inventory_asset_id is not none %}
 {% set aid = inc_item.inventory_asset_id %}
-{% elif inc_item.inventory_hostname is defined and inc_item.inventory_hostname in itsm_inventory_by_hostname %}
+{% elif inc_item.asset_id is defined and inc_item.asset_id is not none %}
+{% set aid = inc_item.asset_id %}
+{% elif inc_item.asset_name is defined and inc_item.asset_name in itsm_asset_by_name %}
+{% set aid = itsm_asset_by_name[inc_item.asset_name] %}
+{% elif inc_item.inventory_hostname is defined and inc_item.inventory_hostname in itsm_asset_by_name %}
+{% set aid = itsm_asset_by_name[inc_item.inventory_hostname] %}
+{% elif inc_item.inventory_hostname is defined and inc_item.inventory_hostname in (itsm_inventory_by_hostname | default({})) %}
 {% set aid = itsm_inventory_by_hostname[inc_item.inventory_hostname] %}
 {% endif %}
 {% if aid is not none %}

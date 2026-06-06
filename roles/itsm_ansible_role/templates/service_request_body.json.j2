@@ -1,0 +1,13 @@
+{% set b = {
+  'name': sr_item.name,
+  'description': sr_item.description | default('')
+} %}
+{% if sr_item.request_template_name is defined and sr_item.request_template_name in itsm_request_template_by_name %}
+{% set b = b | combine({'request_template_id': itsm_request_template_by_name[sr_item.request_template_name] | int}) %}
+{% elif sr_item.request_template_id is defined %}
+{% set b = b | combine({'request_template_id': sr_item.request_template_id | int}) %}
+{% endif %}
+{% if sr_item.specifications is defined %}
+{% set b = b | combine({'specifications': sr_item.specifications}) %}
+{% endif %}
+{{ b | to_json }}

@@ -1,0 +1,6 @@
+---
+# Inventory plugin wrapper for files/itsm_inventory.py
+# Requires env: ITSM_API_BASE_URL, ITSM_API_USER, ITSM_API_PASSWORD
+
+plugin: ansible.builtin.script
+path: ../files/itsm_inventory.py

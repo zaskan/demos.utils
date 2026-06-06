@@ -1,0 +1,13 @@
+{% set tt_ids = [] %}
+{% for tn in ct_item.task_template_names | default([]) %}
+{% if tn in itsm_task_template_by_name %}
+{% set _ = tt_ids.append(itsm_task_template_by_name[tn] | int) %}
+{% endif %}
+{% endfor %}
+{% set b = {
+  'name': ct_item.name,
+  'description': ct_item.description | default(''),
+  'change_type': ct_item.change_type | default('standard'),
+  'task_template_ids': tt_ids
+} %}
+{{ b | to_json }}

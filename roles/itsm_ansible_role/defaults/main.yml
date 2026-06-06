@@ -11,10 +11,18 @@ itsm_ansible_role_check_connection: true
 itsm_ansible_role_admin_settings: true
 itsm_ansible_role_users: true
 itsm_ansible_role_asset_types: true
+itsm_ansible_role_assets: true
+# Deprecated alias — when true and itsm_assets is empty, itsm_inventory items are used
 itsm_ansible_role_inventory: true
 itsm_ansible_role_kb: true
 itsm_ansible_role_incidents: true
 itsm_ansible_role_followups: true
+itsm_ansible_role_task_templates: true
+itsm_ansible_role_change_templates: true
+itsm_ansible_role_request_templates: true
+itsm_ansible_role_service_requests: true
+itsm_ansible_role_changes: true
+itsm_ansible_role_change_tasks: true
 
 # Admin (omit / leave empty to skip individual steps — handled in tasks)
 itsm_app_title: ""
@@ -28,15 +36,29 @@ itsm_webhooks_remove_unlisted: false
 
 itsm_users: []
 
+# Optional nested fields: { field_key, label, field_type, required?, options?, sort_order? }
 itsm_asset_types: []
 
-# asset_type_name must match a type created above (or pre-existing with same name — map uses API response names)
+# asset_type_name must match a type created above (or pre-existing with same name)
+# Legacy itsm_inventory ({ hostname, ip_address, group_name }) is still accepted when itsm_assets is empty
+itsm_assets: []
 itsm_inventory: []
 
 itsm_kb_articles: []
 
-# Each needs incident_key; optional inventory_hostname or inventory_asset_id; optional created_at (ISO string)
+itsm_task_templates: []
+itsm_change_templates: []
+itsm_request_templates: []
+
+itsm_service_requests: []
+itsm_changes: []
+itsm_change_task_progress: []
+
+# Each needs incident_key; optional asset_name, inventory_hostname (legacy), or inventory_asset_id; optional created_at (ISO string)
 itsm_incidents: []
 
 # Comments / close by incident_key from itsm_incidents; close.kb_article_title resolved after KB bootstrap
 itsm_incident_followups: []
+
+# Effective assets toggle: itsm_ansible_role_assets OR legacy itsm_ansible_role_inventory
+itsm_ansible_role_assets_effective: "{{ itsm_ansible_role_assets | bool or itsm_ansible_role_inventory | bool }}"

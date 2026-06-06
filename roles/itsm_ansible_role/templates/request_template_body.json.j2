@@ -1,0 +1,11 @@
+{% set b = {
+  'name': rt_item.name,
+  'description': rt_item.description,
+  'require_standard_change': rt_item.require_standard_change | default(true)
+} %}
+{% if rt_item.change_template_name is defined and rt_item.change_template_name in itsm_change_template_by_name %}
+{% set b = b | combine({'change_template_id': itsm_change_template_by_name[rt_item.change_template_name] | int}) %}
+{% elif rt_item.change_template_id is defined %}
+{% set b = b | combine({'change_template_id': rt_item.change_template_id | int}) %}
+{% endif %}
+{{ b | to_json }}

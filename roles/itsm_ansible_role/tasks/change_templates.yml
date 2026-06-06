@@ -1,0 +1,77 @@
+---
+# Idempotent: GET existing change templates; POST only names not already present.
+- name: GET existing change templates
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/change-templates"
+    method: GET
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    return_content: true
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+  register: _itsm_list_ct
+  when: itsm_ansible_role_change_templates | bool and itsm_change_templates | length > 0
+
+- name: Merge existing change templates into name-to-id map
+  ansible.builtin.set_fact:
+    itsm_change_template_by_name: "{{ itsm_change_template_by_name | combine({ item.name: item.id }) }}"
+  loop: "{{ _itsm_list_ct.json | default([]) }}"
+  when:
+    - itsm_ansible_role_change_templates | bool
+    - itsm_change_templates | length > 0
+    - _itsm_list_ct is defined
+
+- name: POST change templates (only new names)
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/change-templates"
+    method: POST
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body: "{{ lookup('template', 'change_template_body.json.j2') | from_json }}"
+    status_code: [201]
+    return_content: true
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  loop: "{{ itsm_change_templates }}"
+  loop_control:
+    loop_var: ct_item
+  register: _itsm_ct_post
+  when:
+    - itsm_ansible_role_change_templates | bool
+    - itsm_change_templates | length > 0
+    - ct_item.name not in (itsm_change_template_by_name | default({}))
+
+- name: Merge newly created change templates into name map
+  ansible.builtin.set_fact:
+    itsm_change_template_by_name: "{{ itsm_change_template_by_name | combine({ item.json.name: item.json.id }) }}"
+  loop: "{{ _itsm_ct_post.results | default([]) }}"
+  when:
+    - itsm_ansible_role_change_templates | bool
+    - _itsm_ct_post is defined
+    - _itsm_ct_post.results is defined
+    - item.json is defined
+    - item.json.name is defined
+    - item.json.id is defined
+
+- name: Ensure custom fields on change templates
+  ansible.builtin.include_tasks: custom_fields_ensure.yml
+  vars:
+    cf_fields_url: "{{ itsm_api_base_url }}/api/v1/change-templates/{{ itsm_change_template_by_name[ct_item.name] }}/fields"
+    cf_fields: "{{ ct_item.fields }}"
+  loop: "{{ itsm_change_templates }}"
+  loop_control:
+    loop_var: ct_item
+  when:
+    - itsm_ansible_role_change_templates | bool
+    - ct_item.fields is defined
+    - ct_item.fields | length > 0
+    - ct_item.name in (itsm_change_template_by_name | default({}))

@@ -1,0 +1,7 @@
+---
+- name: Progress CTASKs on changes
+  ansible.builtin.include_tasks: change_task_progress_item.yml
+  loop: "{{ itsm_change_task_progress }}"
+  loop_control:
+    loop_var: ctp_item
+  when: itsm_ansible_role_change_tasks | bool and itsm_change_task_progress | length > 0

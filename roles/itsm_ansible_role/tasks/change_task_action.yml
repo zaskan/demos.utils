@@ -1,0 +1,35 @@
+---
+# Included with ctp_change_ref, cta_task, cta_action (start | complete)
+- name: Start CTASK
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/changes/{{ ctp_change_ref }}/tasks/{{ cta_task.public_id }}/start"
+    method: POST
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body: {}
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  when: cta_action in ['start', 'complete']
+
+- name: Complete CTASK
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/changes/{{ ctp_change_ref }}/tasks/{{ cta_task.public_id }}/complete"
+    method: POST
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body: {}
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  when: cta_action == 'complete'

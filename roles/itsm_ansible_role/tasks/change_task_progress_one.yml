@@ -1,0 +1,39 @@
+---
+# Included from change_tasks.yml with ctp_change_ref, ctp_mode, ctp_tasks
+- name: Start and complete CTASKs (complete_all mode)
+  ansible.builtin.include_tasks: change_task_action.yml
+  vars:
+    cta_action: complete
+  loop: "{{ ctp_tasks }}"
+  loop_control:
+    loop_var: cta_task
+  when: ctp_mode == 'complete_all'
+
+- name: Start and complete first half of CTASKs (half mode)
+  ansible.builtin.include_tasks: change_task_action.yml
+  vars:
+    cta_action: complete
+  loop: "{{ ctp_tasks[: (ctp_tasks | length // 2)] }}"
+  loop_control:
+    loop_var: cta_task
+  when: ctp_mode == 'half'
+
+- name: Complete all but last CTASK (last_in_progress mode)
+  ansible.builtin.include_tasks: change_task_action.yml
+  vars:
+    cta_action: complete
+  loop: "{{ ctp_tasks[:-1] }}"
+  loop_control:
+    loop_var: cta_task
+  when:
+    - ctp_mode == 'last_in_progress'
+    - (ctp_tasks | length) > 1
+
+- name: Start last CTASK only (last_in_progress mode)
+  ansible.builtin.include_tasks: change_task_action.yml
+  vars:
+    cta_action: start
+    cta_task: "{{ ctp_tasks[-1] }}"
+  when:
+    - ctp_mode == 'last_in_progress'
+    - (ctp_tasks | length) > 0

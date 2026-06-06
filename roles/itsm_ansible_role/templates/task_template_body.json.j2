@@ -1,0 +1,14 @@
+{% set b = {
+  'name': tt_item.name,
+  'title': tt_item.title,
+  'description': tt_item.description | default('')
+} %}
+{% if tt_item.assigned_username is defined and tt_item.assigned_username in itsm_user_by_username %}
+{% set b = b | combine({'assigned_user_id': itsm_user_by_username[tt_item.assigned_username] | int}) %}
+{% endif %}
+{% if tt_item.kb_article_title is defined and tt_item.kb_article_title in itsm_kb_by_title %}
+{% set b = b | combine({'kb_article_id': itsm_kb_by_title[tt_item.kb_article_title] | int}) %}
+{% elif tt_item.kb_article_id is defined %}
+{% set b = b | combine({'kb_article_id': tt_item.kb_article_id | int}) %}
+{% endif %}
+{{ b | to_json }}

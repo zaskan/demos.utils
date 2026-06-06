@@ -1,0 +1,64 @@
+---
+# Idempotent: GET existing assets; POST only names not already in the map.
+# Supports legacy itsm_inventory items ({ hostname, ip_address, group_name }) via itsm_assets_effective.
+- name: GET existing assets
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/assets"
+    method: GET
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    return_content: true
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+  register: _itsm_list_assets
+  when: itsm_ansible_role_assets_effective | bool and itsm_assets_effective | length > 0
+
+- name: Merge existing assets into name-to-id map
+  ansible.builtin.set_fact:
+    itsm_asset_by_name: "{{ itsm_asset_by_name | combine({ item.name: item.id }) }}"
+  loop: "{{ _itsm_list_assets.json | default([]) }}"
+  when:
+    - itsm_ansible_role_assets_effective | bool
+    - itsm_assets_effective | length > 0
+    - _itsm_list_assets is defined
+
+- name: POST assets (only new names)
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/assets"
+    method: POST
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    body_format: json
+    body: "{{ lookup('template', 'asset_body.json.j2') | from_json }}"
+    status_code: [201]
+    return_content: true
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+  loop: "{{ itsm_assets_effective }}"
+  loop_control:
+    loop_var: asset_item
+  register: _itsm_asset_post
+  when:
+    - itsm_ansible_role_assets_effective | bool
+    - itsm_assets_effective | length > 0
+    - (asset_item.name | default(asset_item.hostname)) not in (itsm_asset_by_name | default({}))
+
+- name: Merge newly created assets into name map
+  ansible.builtin.set_fact:
+    itsm_asset_by_name: "{{ itsm_asset_by_name | combine({ item.json.name: item.json.id }) }}"
+  loop: "{{ _itsm_asset_post.results | default([]) }}"
+  when:
+    - itsm_ansible_role_assets_effective | bool
+    - _itsm_asset_post is defined
+    - _itsm_asset_post.results is defined
+    - item.json is defined
+    - item.json.name is defined
+    - item.json.id is defined

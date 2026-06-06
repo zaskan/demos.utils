@@ -1,0 +1,5 @@
+{% set b = {
+  'change_template_id': itsm_change_template_by_name[ch_item.change_template_name] | int,
+  'custom_fields': ch_item.custom_fields | default({})
+} %}
+{{ b | to_json }}

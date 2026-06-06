@@ -1,0 +1,9 @@
+{% set b = {
+  'field_key': cf_item.field_key,
+  'label': cf_item.label,
+  'field_type': cf_item.field_type | default('text'),
+  'required': cf_item.required | default(false) | bool,
+  'options': cf_item.options | default([]),
+  'sort_order': cf_item.sort_order | default(0) | int
+} %}
+{{ b | to_json }}

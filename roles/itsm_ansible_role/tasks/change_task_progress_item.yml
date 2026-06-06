@@ -1,0 +1,56 @@
+---
+- name: Resolve change ref for task progress item
+  ansible.builtin.set_fact:
+    _ctp_change_ref: ""
+
+- name: Resolve change ref from explicit change_ref
+  ansible.builtin.set_fact:
+    _ctp_change_ref: "{{ ctp_item.change_ref }}"
+  when: ctp_item.change_ref is defined and ctp_item.change_ref | length > 0
+
+- name: Resolve change ref from change_key
+  ansible.builtin.set_fact:
+    _ctp_change_ref: "{{ itsm_change_by_key[ctp_item.change_key] }}"
+  when:
+    - _ctp_change_ref | length == 0
+    - ctp_item.change_key is defined
+    - ctp_item.change_key in (itsm_change_by_key | default({}))
+
+- name: Resolve change ref from request_key (first submitted change)
+  ansible.builtin.set_fact:
+    _ctp_change_ref: "{{ (itsm_changes_from_request[ctp_item.request_key] | default([]))[0] }}"
+  when:
+    - _ctp_change_ref | length == 0
+    - ctp_item.request_key is defined
+    - ctp_item.request_key in (itsm_changes_from_request | default({}))
+    - (itsm_changes_from_request[ctp_item.request_key] | default([]) | length) > 0
+
+- name: GET change detail for CTASK progress
+  ansible.builtin.uri:
+    url: "{{ itsm_api_base_url }}/api/v1/changes/{{ _ctp_change_ref }}"
+    method: GET
+    force_basic_auth: true
+    url_username: "{{ itsm_api_user }}"
+    url_password: "{{ itsm_api_password }}"
+    validate_certs: "{{ itsm_validate_certs }}"
+    return_content: true
+    status_code: [200]
+    timeout: "{{ itsm_http_timeout }}"
+    headers:
+      Accept: application/json
+  register: _itsm_ctp_detail
+  when:
+    - _ctp_change_ref | length > 0
+    - ctp_item.mode | default('complete_all') != 'pending'
+
+- name: Apply CTASK progress for change
+  ansible.builtin.include_tasks: change_task_progress_one.yml
+  vars:
+    ctp_change_ref: "{{ _ctp_change_ref }}"
+    ctp_mode: "{{ ctp_item.mode | default('complete_all') }}"
+    ctp_tasks: "{{ (_itsm_ctp_detail.json.tasks | default([])) | sort(attribute='sequence_order') }}"
+  when:
+    - _itsm_ctp_detail is defined
+    - _itsm_ctp_detail.json is defined
+    - (_itsm_ctp_detail.json.tasks | default([]) | length) > 0
+    - ctp_item.mode | default('complete_all') != 'pending'

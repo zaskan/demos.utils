@@ -1,0 +1,32 @@
+{% set asset_name = asset_item.name | default(asset_item.hostname) %}
+{% set desc = asset_item.description | default('') %}
+{% if desc | length == 0 and asset_item.hostname is defined %}
+{% set parts = [] %}
+{% if asset_item.ip_address is defined and asset_item.ip_address | length > 0 %}
+{% set _ = parts.append('IP: ' ~ asset_item.ip_address) %}
+{% endif %}
+{% if asset_item.group_name is defined and asset_item.group_name | length > 0 %}
+{% set _ = parts.append('Group: ' ~ asset_item.group_name) %}
+{% endif %}
+{% set desc = parts | join(' — ') if parts | length > 0 else 'Demo asset' %}
+{% elif desc | length == 0 %}
+{% set desc = 'Demo asset' %}
+{% endif %}
+{% set b = {
+  'name': asset_name,
+  'description': desc,
+  'external_inventory': asset_item.external_inventory | default(false)
+} %}
+{% if asset_item.asset_type_name is defined and asset_item.asset_type_name in itsm_asset_type_by_name %}
+{% set b = b | combine({'asset_type_id': itsm_asset_type_by_name[asset_item.asset_type_name] | int}) %}
+{% endif %}
+{% if asset_item.parent_asset_name is defined and asset_item.parent_asset_name in itsm_asset_by_name %}
+{% set b = b | combine({'parent_asset_id': itsm_asset_by_name[asset_item.parent_asset_name] | int}) %}
+{% endif %}
+{% if asset_item.assigned_username is defined and asset_item.assigned_username in itsm_user_by_username %}
+{% set b = b | combine({'assigned_user_id': itsm_user_by_username[asset_item.assigned_username] | int}) %}
+{% endif %}
+{% if asset_item.custom_fields is defined %}
+{% set b = b | combine({'custom_fields': asset_item.custom_fields}) %}
+{% endif %}
+{{ b | to_json }}
